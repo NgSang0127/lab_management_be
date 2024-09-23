@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport"
+          content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="ie=edge">
+    <title>Account Activation</title>
+    <style>
+      body {
+        font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+        margin: 0;
+        padding: 0;
+        background-color: #f4f4f4;
+      }
+
+      .container {
+        max-width: 600px;
+        margin: 20px auto;
+        padding: 30px;
+        background-color: #ffffff;
+        border-radius: 8px;
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+        text-align: center;
+      }
+
+      h1 {
+        color: #333333;
+        font-size: 24px;
+        margin-bottom: 10px;
+      }
+
+      p {
+        color: #666666;
+        font-size: 16px;
+        line-height: 1.5;
+        margin-bottom: 20px;
+      }
+
+      .activation-code {
+        font-size: 48px;
+        color: #333333;
+        font-weight: bold;
+        letter-spacing: 2px;
+        margin: 20px 0;
+      }
+
+      .activation-link {
+        margin-top: 30px;
+      }
+
+      .activation-link a {
+        display: inline-block;
+        padding: 14px 28px;
+        background-color: #007bff;
+        color: #ffffff;
+        font-size: 16px;
+        font-weight: bold;
+        text-decoration: none;
+        border-radius: 6px;
+        box-shadow: 0 4px 10px rgba(0, 123, 255, 0.4);
+        transition: background-color 0.3s ease, box-shadow 0.3s ease;
+      }
+
+      .activation-link a:hover {
+        cursor: pointer;
+        background-color: #0056b3;
+        box-shadow: 0 6px 15px rgba(0, 123, 255, 0.5);
+      }
+
+      .footer {
+        margin-top: 30px;
+        font-size: 12px;
+        color: #999999;
+      }
+    </style>
+</head>
+<body>
+<div class="container">
+    <h1>Activate Your Account</h1>
+    <p class="greeting" th:text="'Hello ' + ${username} + ','"></p>
+    <p>Thank you for signing up! Use the code below to activate your account:</p>
+    <div class="activation-code" th:text="${activation_code}"></div>
+    <div class="activation-link">
+        <a th:href="@{${confirmationUrl}(code=${activation_code})}" target="_blank">Activate your account</a>
+    </div>
+    <div class="footer">
+        <p>If you didn’t request this email, please ignore it.</p>
+    </div>
+</div>
+</body>
+</html>
