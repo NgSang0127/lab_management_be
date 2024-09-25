@@ -2,6 +2,7 @@ package org.sang.labmanagement.timetable;
 
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Map;
 import lombok.RequiredArgsConstructor;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.format.annotation.DateTimeFormat.ISO;
@@ -28,15 +29,18 @@ public class TimetableController {
 
 	@GetMapping("/by-week")
 	public ResponseEntity<List<Timetable>> getTimetablesByWeek(
-			@RequestParam("startDate") @DateTimeFormat(iso = ISO.DATE) String startDateString,
-			@RequestParam("endDate") @DateTimeFormat(iso = ISO.DATE) String endDateString
-	){
-		LocalDate startDate = LocalDate.parse(startDateString.trim());
-		LocalDate endDate = LocalDate.parse(endDateString.trim());
-
+			@RequestParam("startDate") @DateTimeFormat(pattern = "dd/MM/yyyy") LocalDate startDate,
+			@RequestParam("endDate") @DateTimeFormat(pattern = "dd/MM/yyyy") LocalDate endDate
+	) {
 		return ResponseEntity.ok(timetableService.getAllTimetableByWeek(startDate, endDate));
 	}
 
+
+	@GetMapping("/weeks-range")
+	public ResponseEntity<Map<String, LocalDate>> getFirstAndLastWeek() {
+		Map<String, LocalDate> weekRange = timetableService.getFirstAndLastWeek();
+		return ResponseEntity.ok(weekRange);
+	}
 
 	@PostMapping("/import")
 	public ResponseEntity<?> importTimetableData(@RequestParam("file") MultipartFile file) {

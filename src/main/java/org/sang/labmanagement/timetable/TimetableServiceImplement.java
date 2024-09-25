@@ -11,8 +11,10 @@ import java.time.temporal.TemporalAdjusters;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import lombok.RequiredArgsConstructor;
 import org.apache.poi.ss.usermodel.CellType;
@@ -86,6 +88,54 @@ public class TimetableServiceImplement implements TimetableService {
 		}
 
 		return matchingTimetables;
+	}
+
+	@Override
+	public Map<String, LocalDate> getFirstAndLastWeek() {
+		List<Timetable> allTimetables = timetableRepository.findAll(); // Lấy tất cả thời khóa biểu
+
+		// Khởi tạo biến để tìm ngày nhỏ nhất và ngày lớn nhất
+		LocalDate minDate = LocalDate.MAX;
+		LocalDate maxDate = LocalDate.MIN;
+
+		for (Timetable timetable : allTimetables) {
+			List<LocalDate[]> periods = extractStudyPeriods(timetable.getStudyTime());
+
+			// Kiểm tra từng khoảng thời gian để tìm minDate và maxDate
+			for (LocalDate[] period : periods) {
+				LocalDate periodStart = period[0];
+				LocalDate periodEnd = period[1];
+
+				// Cập nhật minDate và maxDate
+				if (periodStart.isBefore(minDate)) {
+					minDate = periodStart;
+				}
+				if (periodEnd.isAfter(maxDate)) {
+					maxDate = periodEnd;
+				}
+			}
+		}
+
+		// Tìm tuần đầu tiên và tuần cuối cùng dựa trên minDate và maxDate
+		LocalDate firstWeekStart = getStartOfWeek(minDate);
+		LocalDate lastWeekEnd = getEndOfWeek(maxDate);
+
+		// Trả về kết quả dưới dạng map hoặc đối tượng với ngày bắt đầu và kết thúc
+		Map<String, LocalDate> result = new HashMap<>();
+		result.put("firstWeekStart", firstWeekStart);
+		result.put("lastWeekEnd", lastWeekEnd);
+
+		return result;
+	}
+
+	// Hàm để lấy ngày bắt đầu của tuần từ một LocalDate (Thứ Hai)
+	public LocalDate getStartOfWeek(LocalDate date) {
+		return date.with(DayOfWeek.MONDAY); // Trả về ngày Thứ Hai của tuần
+	}
+
+	// Hàm để lấy ngày kết thúc của tuần từ một LocalDate (Chủ Nhật)
+	public LocalDate getEndOfWeek(LocalDate date) {
+		return date.with(DayOfWeek.SUNDAY); // Trả về ngày Chủ Nhật của tuần
 	}
 
 
