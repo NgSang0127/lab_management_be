@@ -53,5 +53,13 @@ public class TimetableController {
 		}
 	}
 
+	@GetMapping("/course-details")
+	public ResponseEntity<Timetable>getTimetableByClassIdAndNhAndTH(
+			@RequestParam String courseId,
+			@RequestParam String NH,
+			@RequestParam String TH
+	){
+		return ResponseEntity.ok(timetableService.getTimetableByClassIdAndNhAndTh(courseId, NH, TH));
+	}
 
 }

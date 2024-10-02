@@ -42,9 +42,9 @@ public class Course {
 	private String code;
 
 
-	private int NH;
+	private String NH;
 
-	private int TH;
+	private String TH;
 
 
 	private String description;

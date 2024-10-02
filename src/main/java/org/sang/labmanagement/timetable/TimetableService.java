@@ -15,4 +15,6 @@ public interface TimetableService {
 
 	Map<String,LocalDate> getFirstAndLastWeek();
 
+	Timetable getTimetableByClassIdAndNhAndTh(String code,String NH,String TH);
+
 }

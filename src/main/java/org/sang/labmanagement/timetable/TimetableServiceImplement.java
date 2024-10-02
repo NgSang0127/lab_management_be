@@ -48,8 +48,8 @@ public class TimetableServiceImplement implements TimetableService {
 	private final List<LessonTime> lessonTimeList = new ArrayList<>();
 	private String previousCode = "";  // Mã MH
 	private int previousCredits = 0;   // Số TC
-	private int previousNH = 0;        // NH
-	private int previousTH = 0;        // TH
+	private String previousNH = "";        // NH
+	private String previousTH = "";        // TH
 	private String previousClassId = ""; // Lớp
 	private int previousNumberOfStudents = 0;
 
@@ -158,8 +158,10 @@ public class TimetableServiceImplement implements TimetableService {
 		return periods;
 	}
 
-
-
+	@Override
+	public Timetable getTimetableByClassIdAndNhAndTh(String code, String NH, String TH) {
+		return timetableRepository.findByClassIdAndNHAndToTH(code,NH,TH);
+	}
 
 	@Override
 	public List<Timetable> importExcelData(MultipartFile file) throws Exception {
@@ -226,10 +228,10 @@ public class TimetableServiceImplement implements TimetableService {
 				code = code.isEmpty() ? previousCode : (previousCode = code);
 				int credits = (int) getNumericCellValue(row, 7);
 				credits = (credits == 0) ? previousCredits : (previousCredits = credits);
-				int NH = (int) getNumericCellValue(row, 8);
-				NH = (NH == 0) ? previousNH : (previousNH = NH);
-				int TH = (int) getNumericCellValue(row, 9);
-				TH = (TH == 0) ? previousTH : (previousTH = TH);
+				String NH = getStringCellValue(row, 8);
+				NH = NH.isEmpty() ? previousNH : (previousNH = NH);
+				String TH = getStringCellValue(row, 9);
+				TH = TH.isEmpty() ? previousTH : (previousTH = TH);
 				String classId = getStringCellValue(row, 10);
 				classId = classId.isEmpty() ? previousClassId : (previousClassId = classId);
 				int numberOfStudents = (int) getNumericCellValue(row, 11);

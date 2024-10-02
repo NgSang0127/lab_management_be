@@ -7,5 +7,5 @@ import org.springframework.stereotype.Repository;
 @Repository
 public interface CourseRepository extends JpaRepository<Course,Long> {
 
-	Optional<Course> findByCodeAndNHAndTH(String code, int NH, int TH);
+	Optional<Course> findByCodeAndNHAndTH(String code, String NH, String TH);
 }
