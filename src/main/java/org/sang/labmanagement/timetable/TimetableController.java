@@ -1,9 +1,11 @@
 package org.sang.labmanagement.timetable;
 
 import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Map;
 import lombok.RequiredArgsConstructor;
+import org.sang.labmanagement.timetable.request.CreateTimetableRequest;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.format.annotation.DateTimeFormat.ISO;
 import org.springframework.http.ResponseEntity;
@@ -37,8 +39,8 @@ public class TimetableController {
 
 
 	@GetMapping("/weeks-range")
-	public ResponseEntity<Map<String, LocalDate>> getFirstAndLastWeek() {
-		Map<String, LocalDate> weekRange = timetableService.getFirstAndLastWeek();
+	public ResponseEntity<Map<String, String>> getFirstAndLastWeek() {
+		Map<String, String> weekRange = timetableService.getFirstAndLastWeek();
 		return ResponseEntity.ok(weekRange);
 	}
 
@@ -54,12 +56,52 @@ public class TimetableController {
 	}
 
 	@GetMapping("/course-details")
-	public ResponseEntity<Timetable>getTimetableByClassIdAndNhAndTH(
-			@RequestParam String courseId,
-			@RequestParam String NH,
-			@RequestParam String TH
-	){
-		return ResponseEntity.ok(timetableService.getTimetableByClassIdAndNhAndTh(courseId, NH, TH));
+	public ResponseEntity<Timetable> getTimetableByClassIdAndNhAndTH(
+			@RequestParam(required = false) String courseId,
+			@RequestParam(required = false) String NH,
+			@RequestParam(required = false) String TH,
+			@RequestParam(required = false) String timetableName
+	) {
+
+		Timetable timetable = timetableService.getTimetableByClassIdAndNhAndTh(courseId, NH, TH, timetableName);
+
+		if (timetable != null) {
+			return ResponseEntity.ok(timetable);
+		} else {
+			return ResponseEntity.notFound().build();
+		}
+	}
+
+
+	@PostMapping("/cancel")
+	public ResponseEntity<String> cancelTimetable(
+			@RequestParam String cancelDate,
+			@RequestParam int startLesson,
+			@RequestParam String roomName,
+			@RequestParam Long timetableId) {
+
+		LocalDate date = LocalDate.parse(cancelDate, DateTimeFormatter.ofPattern("dd/MM/yyyy"));
+		boolean success = timetableService.cancelTimetableOnDate(date, startLesson, roomName, timetableId);
+
+		if (success) {
+			return ResponseEntity.ok("Timetable has been canceled successfully.");
+		} else {
+			return ResponseEntity.badRequest().body("Failed to cancel the timetable.");
+		}
+	}
+
+	@GetMapping("/by-date")
+	public ResponseEntity<List<Timetable>> getTimetablesByDate(
+			@RequestParam("date") @DateTimeFormat(pattern = "dd/MM/yyyy") LocalDate date) {
+
+		List<Timetable> timetables = timetableService.getTimetablesByDate(date);
+		return ResponseEntity.ok(timetables);
+	}
+
+	@PostMapping("/create")
+	public ResponseEntity<Timetable> createTimetable(@RequestBody CreateTimetableRequest request) {
+		Timetable newTimetable = timetableService.createTimetable(request);
+		return ResponseEntity.ok(newTimetable);
 	}
 
 }

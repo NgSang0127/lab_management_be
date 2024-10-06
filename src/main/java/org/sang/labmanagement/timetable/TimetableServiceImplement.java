@@ -16,6 +16,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import org.apache.poi.ss.usermodel.CellType;
 import org.apache.poi.ss.usermodel.Row;
@@ -31,6 +32,7 @@ import org.sang.labmanagement.semester.Semester;
 import org.sang.labmanagement.semester.SemesterRepository;
 import org.sang.labmanagement.timetable.LessonTime.LessonTime;
 import org.sang.labmanagement.timetable.LessonTime.LessonTimeRepository;
+import org.sang.labmanagement.timetable.request.CreateTimetableRequest;
 import org.sang.labmanagement.user.Role;
 import org.sang.labmanagement.user.User;
 import org.sang.labmanagement.user.UserRepository;
@@ -70,7 +72,7 @@ public class TimetableServiceImplement implements TimetableService {
 	public List<Timetable> getAllTimetableByWeek(LocalDate startDate, LocalDate endDate) {
 		List<Timetable> matchingTimetables = new ArrayList<>();
 
-		List<Timetable> allTimetables = timetableRepository.findAll(); // Lấy tất cả thời khóa biểu
+		List<Timetable> allTimetables = timetableRepository.findAll();
 
 		for (Timetable timetable : allTimetables) {
 			List<LocalDate[]> periods = extractStudyPeriods(timetable.getStudyTime());
@@ -91,7 +93,7 @@ public class TimetableServiceImplement implements TimetableService {
 	}
 
 	@Override
-	public Map<String, LocalDate> getFirstAndLastWeek() {
+	public Map<String, String> getFirstAndLastWeek() {
 		List<Timetable> allTimetables = timetableRepository.findAll(); // Lấy tất cả thời khóa biểu
 
 		// Khởi tạo biến để tìm ngày nhỏ nhất và ngày lớn nhất
@@ -120,13 +122,19 @@ public class TimetableServiceImplement implements TimetableService {
 		LocalDate firstWeekStart = getStartOfWeek(minDate);
 		LocalDate lastWeekEnd = getEndOfWeek(maxDate);
 
+		DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd/MM/yyyy");
+		String formatFirst=firstWeekStart.format(formatter);
+		String formatEnd=lastWeekEnd.format(formatter);
+
 		// Trả về kết quả dưới dạng map hoặc đối tượng với ngày bắt đầu và kết thúc
-		Map<String, LocalDate> result = new HashMap<>();
-		result.put("firstWeekStart", firstWeekStart);
-		result.put("lastWeekEnd", lastWeekEnd);
+		Map<String, String> result = new HashMap<>();
+		result.put("firstWeekStart", formatFirst);
+		result.put("lastWeekEnd", formatEnd);
 
 		return result;
 	}
+
+
 
 	// Hàm để lấy ngày bắt đầu của tuần từ một LocalDate (Thứ Hai)
 	public LocalDate getStartOfWeek(LocalDate date) {
@@ -138,30 +146,142 @@ public class TimetableServiceImplement implements TimetableService {
 		return date.with(DayOfWeek.SUNDAY); // Trả về ngày Chủ Nhật của tuần
 	}
 
+	@Override
+	public boolean cancelTimetableOnDate(LocalDate cancelDate, int startLesson, String roomName, Long timetableId) {
+		Timetable timetable=timetableRepository.findById(timetableId).orElseThrow(
+				()->new IllegalArgumentException("Not found timetable with id:"+timetableId)
+		);
+		List<LocalDate[]> studyPeriods = extractStudyPeriods(timetable.getStudyTime());
+
+		//Kiễm tra xem ngày cần hủy có nằm trong bất kỳ khoảng thời gian nào không
+		for(LocalDate[] period :studyPeriods){
+			LocalDate startDate=period[0];
+			LocalDate endDate=period[1];
+
+			if ((cancelDate.isEqual(startDate) || cancelDate.isAfter(startDate))
+					&& (cancelDate.isEqual(endDate) || cancelDate.isBefore(endDate))
+			) {
+
+				if(timetable.getStartLesson()==startLesson && timetable.getRoom().getName().equals(roomName)){
+					timetable.getCancelDates().add(cancelDate);
+					timetableRepository.save(timetable);
+					return true;
+				}
+			}
+		}
+		return false;
+	}
+
+	@Override
+// Lấy danh sách Timetable dựa trên ngày
+	public List<Timetable> getTimetablesByDate(LocalDate date) {
+		List<Timetable> timetables = timetableRepository.findAll();
+
+		return timetables.stream()
+				.filter(timetable -> isCorrectDayAndPeriod(timetable, date) && !isDateCanceled(timetable, date))
+				.collect(Collectors.toList());
+	}
+
+	// Kiểm tra xem ngày có thuộc thứ (DayOfWeek) và nằm trong khoảng thời gian học không
+	private boolean isCorrectDayAndPeriod(Timetable timetable, LocalDate date) {
+		// Kiểm tra thứ trong tuần
+		if (!timetable.getDayOfWeek().equals(date.getDayOfWeek())) {
+			return false; // Nếu ngày đó không trùng thứ với timetable thì bỏ qua
+		}
+
+		// Kiểm tra xem ngày có nằm trong khoảng thời gian học không
+		List<LocalDate[]> studyPeriods = extractStudyPeriods(timetable.getStudyTime());
+
+		// Sử dụng for để kiểm tra từng khoảng thời gian
+		for (LocalDate[] period : studyPeriods) {
+			LocalDate startDate = period[0];
+			LocalDate endDate = period[1];
+
+			// Kiểm tra nếu ngày nằm trong khoảng từ startDate đến endDate
+			if (!date.isBefore(startDate) && !date.isAfter(endDate)) {
+				return true; // Ngày nằm trong khoảng thời gian hợp lệ
+			}
+		}
+
+		return false; // Ngày không nằm trong bất kỳ khoảng thời gian học nào
+	}
+
+	// Kiểm tra xem ngày có nằm trong danh sách ngày đã bị hủy không
+	private boolean isDateCanceled(Timetable timetable, LocalDate date) {
+		if (timetable.getCancelDates() == null || timetable.getCancelDates().isEmpty()) {
+			return false;
+		}
+		return timetable.getCancelDates().contains(date);
+	}
+
+
 
 	public List<LocalDate[]> extractStudyPeriods(String studyTime) {
 		List<LocalDate[]> periods = new ArrayList<>();
 
-		// Tách chuỗi theo dòng mới "\n" nếu có nhiều khoảng thời gian
+		// Tách chuỗi theo dòng mới "\n" nếu có nhiều khoảng thời gian hoặc ngày lẻ
 		String[] periodStrings = studyTime.split("\n");
 
 		for (String periodString : periodStrings) {
-			// Tách từng khoảng thời gian theo dấu "-" để lấy ngày bắt đầu và kết thúc
 			String[] dates = periodString.split("-");
-			if (dates.length == 2) {
+
+			if (dates.length == 2) { // Trường hợp khoảng thời gian
 				LocalDate startDate = LocalDate.parse(dates[0].trim(), DateTimeFormatter.ofPattern("dd/MM/yyyy"));
 				LocalDate endDate = LocalDate.parse(dates[1].trim(), DateTimeFormatter.ofPattern("dd/MM/yyyy"));
 				periods.add(new LocalDate[]{startDate, endDate});
+			} else if (dates.length == 1) { // Trường hợp chỉ có một ngày
+				LocalDate singleDate = LocalDate.parse(dates[0].trim(), DateTimeFormatter.ofPattern("dd/MM/yyyy"));
+				periods.add(new LocalDate[]{singleDate, singleDate}); // Tạo một khoảng mà ngày bắt đầu và kết thúc đều là cùng một ngày
 			}
 		}
 
 		return periods;
 	}
 
+
 	@Override
-	public Timetable getTimetableByClassIdAndNhAndTh(String code, String NH, String TH) {
-		return timetableRepository.findByClassIdAndNHAndToTH(code,NH,TH);
+	public Timetable getTimetableByClassIdAndNhAndTh(String code, String NH, String TH,String timetableName) {
+		return timetableRepository.findByCourseOrTimetableName(code,NH,TH,timetableName);
 	}
+
+
+	@Override
+	public Timetable createTimetable(CreateTimetableRequest request) {
+		Room room = roomRepository.findByName(request.getRoomName()).orElseThrow(
+				() -> new RuntimeException("Room not found")
+		);
+
+		Instructor instructor = instructorRepository.findByInstructorId(request.getInstructorId()).orElseThrow(
+				() -> new RuntimeException("Instructor not found")
+		);
+
+		LessonTime startTime = lessonTimeRepository.findByLessonNumber(request.getStartLesson());
+
+		LessonTime endTime = lessonTimeRepository.findByLessonNumber(request.getEndLesson());
+
+		LocalDate date = request.getDate();
+
+		DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd/MM/yyyy");
+
+
+		String formattedDate = date.format(formatter);
+
+		Timetable timetable = Timetable.builder()
+				.timetableName(request.getTimetableName())
+				.room(room)
+				.startLesson(startTime.getLessonNumber())
+				.startLessonTime(startTime)
+				.endLessonTime(endTime)
+				.instructor(instructor)
+				.totalLessonDay(request.getEndLesson() - request.getStartLesson() + 1)
+				.dayOfWeek(date.getDayOfWeek())
+				.studyTime(formattedDate)
+				.description(request.getDescription())
+				.build();
+
+		return timetableRepository.save(timetable);
+	}
+
 
 	@Override
 	public List<Timetable> importExcelData(MultipartFile file) throws Exception {
@@ -366,7 +486,9 @@ public class TimetableServiceImplement implements TimetableService {
 			}
 		}
 
-		Room room = roomRepository.findByName(roomName);
+		Room room = roomRepository.findByName(roomName).orElseThrow(
+				()->new RuntimeException("Room not found")
+		);
 		if (room == null) {
 			room = Room.builder()
 					.name(roomName)

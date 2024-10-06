@@ -1,10 +1,12 @@
 package org.sang.labmanagement.timetable;
 
 import com.fasterxml.jackson.annotation.JsonBackReference;
+import com.fasterxml.jackson.annotation.JsonFormat;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonManagedReference;
 import jakarta.persistence.CascadeType;
+import jakarta.persistence.ElementCollection;
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
@@ -14,9 +16,7 @@ import jakarta.persistence.ManyToMany;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.OneToMany;
 import java.time.DayOfWeek;
-import java.time.LocalDateTime;
-import java.time.LocalTime;
-import java.util.List;
+import java.time.LocalDate;
 import java.util.Set;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -57,6 +57,7 @@ public class Timetable {
 	@JsonIgnoreProperties("timetables")// Bỏ qua trường timetables khi trả về Course
 	private Set<Course> courses;
 
+	private String timetableName;
 
 	@ManyToOne
 	@JoinColumn(name = "instructor_id", nullable = false)
@@ -83,4 +84,11 @@ public class Timetable {
 	@ManyToOne
 	@JoinColumn(name = "end_lesson_time_id")
 	private LessonTime endLessonTime;
+
+	//Danh sách các ngày bị hủy
+	@ElementCollection
+	@JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "dd/MM/yyyy")
+	private Set<LocalDate> cancelDates;
+
+	private String description;
 }

@@ -12,6 +12,8 @@ spring:
     properties:
       hibernate:
         format_sql: true
+  jackson:
+    date-format: dd/MM/yyyy
   mail:
     host: localhost
     port: 1025
