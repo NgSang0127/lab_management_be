@@ -7,6 +7,7 @@ import org.sang.labmanagement.auth.response.AuthenticationResponse;
 import org.sang.labmanagement.auth.request.LoginRequest;
 import org.sang.labmanagement.auth.request.RegistrationRequest;
 import org.sang.labmanagement.user.User;
+import org.springframework.security.core.Authentication;
 
 public interface AuthenticationService {
 
@@ -16,6 +17,7 @@ public interface AuthenticationService {
 
 	void sendValidationEmail(User user) throws MessagingException;
 
+	User findUser(Authentication connectedUser);
 
 	AuthenticationResponse login(LoginRequest request);
 

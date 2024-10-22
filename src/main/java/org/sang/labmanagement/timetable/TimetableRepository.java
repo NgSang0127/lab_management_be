@@ -1,6 +1,8 @@
 package org.sang.labmanagement.timetable;
 
 
+import java.time.DayOfWeek;
+import java.util.Optional;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -18,5 +20,23 @@ public interface TimetableRepository extends JpaRepository<Timetable,Long> {
 			@Param("timetableName") String timetableName);
 
 
+	@Query("""
+            SELECT t FROM Timetable t
+            JOIN t.room r
+            JOIN t.instructor i
+            JOIN t.courses c
+            WHERE t.classId = :classId
+            AND r.name = :roomName
+            AND t.studyTime =:studyTime
+            AND c.NH =:NH
+            AND c.TH =:TH
+            """)
+	Optional<Timetable> findByClassIdAndRoomNameAndStudyTimeAndTHAndNH(
+			String classId,
+			String roomName,
+			String studyTime,
+			String TH,
+			String NH
 
+	);
 }

@@ -28,7 +28,7 @@ public class SecurityConfig {
 
 	private final JwtFilter jwtFilter;
 	private final AuthenticationProvider authenticationProvider;
-//	private final LogoutHandler logoutHandler;
+	 private final LogoutHandler logoutHandler;
 
 	@Bean
 	public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
@@ -40,27 +40,27 @@ public class SecurityConfig {
 						.requestMatchers("/admin/**").hasRole("ADMIN")
 						.requestMatchers("/teacher/**").hasRole("TEACHER")
 						.requestMatchers("/student/**").hasRole("STUDENT")
-						.requestMatchers("/api/**").authenticated()
+						.requestMatchers("/api/v1/**").authenticated()
 						.anyRequest().permitAll()
 				)
 				.authenticationProvider(authenticationProvider)
-				.addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class);
-//				.logout(logout ->
-//						logout.logoutUrl("/auth/logout")
-//								.addLogoutHandler(logoutHandler)
-//								.logoutSuccessHandler((request, response, authentication) -> SecurityContextHolder.clearContext())
-//				);
+				.addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class)
+		 		.logout(logout ->
+		      logout.logoutUrl("/auth/logout")
+		            .addLogoutHandler(logoutHandler)
+		            .logoutSuccessHandler((request, response, authentication) -> SecurityContextHolder.clearContext())
+		 );
 		return http.build();
 	}
 
 	private CorsConfigurationSource corsConfigurationSource() {
 		return request -> {
 			CorsConfiguration corsConfig = new CorsConfiguration();
-			corsConfig.setAllowedOrigins(List.of("http://localhost:5173"));  // Frontend URL
+			corsConfig.setAllowedOrigins(List.of("http://localhost:5173")); // Frontend URL
 			corsConfig.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
 			corsConfig.setAllowedHeaders(List.of("*"));
 			corsConfig.setExposedHeaders(List.of("Authorization"));
-			corsConfig.setAllowCredentials(true);  // If you need to send cookies with requests
+			corsConfig.setAllowCredentials(true); // If you need to send cookies with requests
 			corsConfig.setMaxAge(3600L);
 			return corsConfig;
 		};

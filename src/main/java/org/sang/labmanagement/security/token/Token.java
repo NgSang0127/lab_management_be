@@ -55,6 +55,7 @@ public class Token {
 	@Column(insertable = false)
 	private LocalDateTime lastModifiedDate;
 
+
 	@ManyToOne(fetch = FetchType.LAZY)
 	@JoinColumn(name = "user_id")
 	private User user;

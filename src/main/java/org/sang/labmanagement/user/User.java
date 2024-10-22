@@ -1,6 +1,9 @@
 package org.sang.labmanagement.user;
 
 import com.fasterxml.jackson.annotation.JsonBackReference;
+import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.annotation.JsonProperty.Access;
 import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -51,6 +54,7 @@ public class User implements UserDetails , Principal {
 
 	private String username;
 
+	@JsonProperty(access = Access.WRITE_ONLY)
 	private String password;
 
 	private String phoneNumber;
@@ -69,7 +73,6 @@ public class User implements UserDetails , Principal {
 	@OneToOne(mappedBy = "user",cascade = CascadeType.ALL)
 	private Student student;
 
-	@JsonBackReference
 	@OneToOne(mappedBy = "user",cascade = CascadeType.ALL)
 	private Instructor instructor;
 
@@ -81,9 +84,11 @@ public class User implements UserDetails , Principal {
 	@Column(insertable = false)
 	private LocalDateTime lastModifiedDate;
 
+	@JsonIgnore
 	@OneToMany(mappedBy = "user")
 	private List<Token> token;
 
+	@JsonIgnore
 	@OneToMany(mappedBy = "user")
 	private List<EmailVerificationCode> emailCode;
 

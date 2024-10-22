@@ -30,7 +30,7 @@ public class Semester {
 
 	private String name;
 
-	private String academic_year;
+	private String academicYear;
 
 	private LocalDate startDate;
 

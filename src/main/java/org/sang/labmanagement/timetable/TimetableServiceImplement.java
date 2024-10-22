@@ -15,9 +15,11 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
+import org.apache.poi.ss.usermodel.Cell;
 import org.apache.poi.ss.usermodel.CellType;
 import org.apache.poi.ss.usermodel.Row;
 import org.apache.poi.ss.usermodel.Sheet;
@@ -247,9 +249,7 @@ public class TimetableServiceImplement implements TimetableService {
 
 	@Override
 	public Timetable createTimetable(CreateTimetableRequest request) {
-		Room room = roomRepository.findByName(request.getRoomName()).orElseThrow(
-				() -> new RuntimeException("Room not found")
-		);
+		Room room = roomRepository.findByName(request.getRoomName());
 
 		Instructor instructor = instructorRepository.findByInstructorId(request.getInstructorId()).orElseThrow(
 				() -> new RuntimeException("Instructor not found")
@@ -344,19 +344,23 @@ public class TimetableServiceImplement implements TimetableService {
 				}
 
 				// Lấy thông tin Mã MH, Số tín chỉ, NH, TH, Lớp, và Số sinh viên va kiem tra 2 ô merge chưa du lieu
-				String code = getStringCellValue(row, 0);
+				String code = getMergedCellValue(row, 0);
 				code = code.isEmpty() ? previousCode : (previousCode = code);
 				int credits = (int) getNumericCellValue(row, 7);
 				credits = (credits == 0) ? previousCredits : (previousCredits = credits);
-				String NH = getStringCellValue(row, 8);
+				String NH = getMergedCellValue(row, 8);
 				NH = NH.isEmpty() ? previousNH : (previousNH = NH);
-				String TH = getStringCellValue(row, 9);
+				String TH = getMergedCellValue(row, 9);
 				TH = TH.isEmpty() ? previousTH : (previousTH = TH);
-				String classId = getStringCellValue(row, 10);
+				String classId = getMergedCellValue(row, 10);
 				classId = classId.isEmpty() ? previousClassId : (previousClassId = classId);
 				int numberOfStudents = (int) getNumericCellValue(row, 11);
-				numberOfStudents = (numberOfStudents == 0) ? previousNumberOfStudents
-						: (previousNumberOfStudents = numberOfStudents);
+				if (numberOfStudents >= 0) {
+					previousNumberOfStudents = numberOfStudents;
+				} else {
+					numberOfStudents = previousNumberOfStudents;
+				}
+
 
 				// Xử lý FullName giảng viên
 				String fullName = getStringCellValue(row, 21).trim();
@@ -364,16 +368,21 @@ public class TimetableServiceImplement implements TimetableService {
 				String firstName = names[0];
 				String lastName = names[1];
 
-				User user = User.builder()
-						.firstName(firstName)
-						.lastName(lastName)
-						.username(getStringCellValue(row, 19)) // Mã viên chức
-						.role(Role.TEACHER)
-						.build();
-
-				User savedUser = userRepository.findByUsername(user.getUsername()).orElse(null);
+				String username = getStringCellValue(row, 19);
+				User savedUser = userRepository.findByUsername(username).orElse(null);
 				if (savedUser == null) {
-					savedUser = userRepository.save(user);
+					// Nếu user không tồn tại, kiểm tra thông tin trước khi lưu
+					if (firstName != null && !firstName.isEmpty() && lastName != null && !lastName.isEmpty()) {
+						User user = User.builder()
+								.firstName(firstName)
+								.lastName(lastName)
+								.username(username) // Mã viên chức
+								.role(Role.TEACHER)
+								.build();
+
+						// Lưu user mới
+						savedUser = userRepository.save(user);
+					}
 				}
 
 				String instructorId = getStringCellValue(row, 19).trim();
@@ -413,43 +422,49 @@ public class TimetableServiceImplement implements TimetableService {
 				// Lấy thông tin DayOfWeek từ Excel
 				int dayOfWeekNumber = (int) getNumericCellValue(row, 12);
 				DayOfWeek dayOfWeek = convertDayToDayOfWeekFromExcel(dayOfWeekNumber);
-
 				int startLesson = (int) getNumericCellValue(row, 13);
+				String studyTime=getStringCellValue(row, 16);
 
-				// Tạo Timetable
-				Timetable timetable = Timetable.builder()
-						.courses(Set.of(savedCourse))
-						.instructor(savedInstructor)
-						.totalLessonSemester((int) getNumericCellValue(row, 5))
-						.classId(classId)
-						.startLesson(startLesson)
-						.numberOfStudents(numberOfStudents)
-						.dayOfWeek(dayOfWeek)
-						.totalLessonDay((int) getNumericCellValue(row, 14))
-						.room(currentRoom)
-						.studyTime(getStringCellValue(row, 16))
-						.build();
+				assert currentRoom != null;
+				Optional<Timetable> existingTimetable = timetableRepository.findByClassIdAndRoomNameAndStudyTimeAndTHAndNH(
+						classId,currentRoom.getName(),studyTime,TH,NH);
+				if(existingTimetable.isPresent()) {
+					System.out.println(
+							"Timetable already exists for Day: " + dayOfWeek + ", Start Lesson: " + startLesson
+									+ ", Class ID: " + classId);
+				} else{
+					// Tạo Timetable
+					Timetable timetable = Timetable.builder()
+							.courses(Set.of(savedCourse))
+							.instructor(savedInstructor)
+							.totalLessonSemester((int) getNumericCellValue(row, 5))
+							.classId(classId)
+							.startLesson(startLesson)
+							.numberOfStudents(numberOfStudents)
+							.dayOfWeek(dayOfWeek)
+							.totalLessonDay((int) getNumericCellValue(row, 14))
+							.room(currentRoom)
+							.studyTime(studyTime)
+							.build();
 
+					LessonTime startLessonTime = lessonTimeRepository.findByLessonNumber(timetable.getStartLesson());
+					if (startLessonTime == null) {
+						System.out.println("No LessonTime found for Start Lesson: " + timetable.getStartLesson());
+					}
+					int endLessonNumber = timetable.getStartLesson() + timetable.getTotalLessonDay() - 1;
+					LessonTime endLessonTime = lessonTimeRepository.findByLessonNumber(endLessonNumber);
+					if (endLessonTime == null) {
+						System.out.println("No LessonTime found for End Lesson: " + endLessonNumber);
+					}
 
-				LessonTime startLessonTime = lessonTimeRepository.findByLessonNumber(timetable.getStartLesson());
-				if (startLessonTime == null) {
-					System.out.println("No LessonTime found for Start Lesson: " + timetable.getStartLesson());
+					timetable.setStartLessonTime(startLessonTime);
+					timetable.setEndLessonTime(endLessonTime);
+
+					timetableRepository.save(timetable);
+					savedCourse.getTimetables().add(timetable);
+					courseRepository.save(savedCourse);
+					timetables.add(timetable);
 				}
-				int endLessonNumber = timetable.getStartLesson() + timetable.getTotalLessonDay() - 1;
-				LessonTime endLessonTime = lessonTimeRepository.findByLessonNumber(endLessonNumber);
-				if (endLessonTime == null) {
-					System.out.println("No LessonTime found for End Lesson: " + endLessonNumber);
-				}
-
-				timetable.setStartLessonTime(startLessonTime);
-				timetable.setEndLessonTime(endLessonTime);
-
-				timetableRepository.save(timetable);
-
-				savedCourse.getTimetables().add(timetable);
-				courseRepository.save(savedCourse);
-
-				timetables.add(timetable);
 			}
 
 			workbook.close();
@@ -486,9 +501,7 @@ public class TimetableServiceImplement implements TimetableService {
 			}
 		}
 
-		Room room = roomRepository.findByName(roomName).orElseThrow(
-				()->new RuntimeException("Room not found")
-		);
+		Room room = roomRepository.findByName(roomName);
 		if (room == null) {
 			room = Room.builder()
 					.name(roomName)
@@ -551,13 +564,19 @@ public class TimetableServiceImplement implements TimetableService {
 			}
 
 			if (semesterName != null) {
-				currentSemester = Semester.builder()
-						.name(semesterName)
-						.academic_year(academicYear)
-						.build();
-				currentSemester = semesterRepository.save(currentSemester);
 
+				Optional<Semester> existingSemester = semesterRepository.findByNameAndAcademicYear(semesterName, academicYear);
+				if (existingSemester.isPresent()) {
+					currentSemester = existingSemester.get();
+				} else {
+					currentSemester = Semester.builder()
+							.name(semesterName)
+							.academicYear(academicYear)
+							.build();
+					currentSemester = semesterRepository.save(currentSemester);
+				}
 			}
+
 		}
 		return currentSemester;
 	}
@@ -625,6 +644,18 @@ public class TimetableServiceImplement implements TimetableService {
 		}
 		return false;
 	}
+
+	private String getMergedCellValue(Row row, int cellIndex) {
+		Cell cell = row.getCell(cellIndex);
+		if (cell != null) {
+			// Kiểm tra xem ô có phải là ô đầu tiên trong ô ghép không
+			if (cell.getCellType() == CellType.STRING) {
+				return cell.getStringCellValue().trim();
+			}
+		}
+		return ""; // Trả về giá trị rỗng nếu không có giá trị
+	}
+
 
 	private void extractLessonTimes(Row row) {
 		String[] lessonData = getStringCellValue(row, 0).split("\\+");
