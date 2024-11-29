@@ -1,5 +1,6 @@
 package org.sang.labmanagement.security.jwt;
 
+import io.jsonwebtoken.ExpiredJwtException;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -26,48 +27,60 @@ public class JwtFilter extends OncePerRequestFilter {
 	private final UserDetailsService userDetailsService;
 	private final TokenRepository tokenRepository;
 
-
 	@Override
 	protected void doFilterInternal(
 			@NonNull HttpServletRequest request,
 			@NonNull HttpServletResponse response,
 			@NonNull FilterChain filterChain)
 			throws ServletException, IOException {
+
+		// Bỏ qua các request liên quan đến authentication
 		if (request.getServletPath().contains("/api/v1/auth")) {
 			filterChain.doFilter(request, response);
-			System.out.println("Skipping authentication for path: " + request.getServletPath());
 			return;
 		}
+
+		// Kiểm tra xem có header Authorization không và nếu có, lấy token từ đó
 		final String authHeader = request.getHeader(HttpHeaders.AUTHORIZATION);
-		final String jwt;
-		final String username;
 		if (authHeader == null || !authHeader.startsWith("Bearer ")) {
-			filterChain.doFilter(request, response);
-			System.out.println("No authorization header found or header does not start with Bearer");
+			response.sendError(HttpServletResponse.SC_UNAUTHORIZED, "Authorization header is missing or invalid");
 			return;
 		}
-		jwt = authHeader.substring(7).trim();
-		username = jwtService.extractUsername(jwt);
-		if (username != null && SecurityContextHolder.getContext().getAuthentication() == null) {
-			UserDetails userDetails = userDetailsService.loadUserByUsername(username);
-			var isTokenValid = tokenRepository.findByToken(jwt)
-					.map(t -> !t.isExpired() && !t.isRevoked())
-					.orElse(false);
-			if (jwtService.isTokenValid(jwt, userDetails) && isTokenValid) {
-				UsernamePasswordAuthenticationToken authToken = new UsernamePasswordAuthenticationToken(
-						userDetails,
-						null,
-						userDetails.getAuthorities()
 
-				);
-				authToken.setDetails(
-						new WebAuthenticationDetailsSource().buildDetails(request)
-				);
-				SecurityContextHolder.getContext().setAuthentication(authToken);
+		final String jwt = authHeader.substring(7).trim();
+		try {
+			String username = jwtService.extractUsername(jwt);
+			if (username != null && SecurityContextHolder.getContext().getAuthentication() == null) {
+				// Tải thông tin người dùng từ username
+				UserDetails userDetails = userDetailsService.loadUserByUsername(username);
+
+				// Kiểm tra xem token có còn hợp lệ không (chưa hết hạn và chưa bị thu hồi)
+				boolean isTokenValid = tokenRepository.findByToken(jwt)
+						.map(t -> !t.isExpired() && !t.isRevoked())
+						.orElse(false);
+
+				if (jwtService.isTokenValid(jwt, userDetails) && isTokenValid) {
+					// Xác thực token nếu hợp lệ
+					UsernamePasswordAuthenticationToken authToken = new UsernamePasswordAuthenticationToken(
+							userDetails, null, userDetails.getAuthorities());
+					authToken.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
+					SecurityContextHolder.getContext().setAuthentication(authToken);
+				} else {
+					response.sendError(HttpServletResponse.SC_UNAUTHORIZED, "Token expired or invalid");
+					return;
+				}
 			}
-
+		} catch (ExpiredJwtException e) {
+			// Trả về mã lỗi 401 cho token hết hạn
+			response.sendError(HttpServletResponse.SC_UNAUTHORIZED, "Token expired");
+			return;
+		} catch (Exception e) {
+			// Xử lý lỗi khác, có thể log lỗi
+			response.sendError(HttpServletResponse.SC_UNAUTHORIZED, "Unauthorized");
+			return;
 		}
-		filterChain.doFilter(request, response);
 
+		// Tiếp tục với chuỗi bộ lọc
+		filterChain.doFilter(request, response);
 	}
 }

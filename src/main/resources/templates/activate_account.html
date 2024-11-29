@@ -82,7 +82,7 @@
     <p>Thank you for signing up! Use the code below to activate your account:</p>
     <div class="activation-code" th:text="${activation_code}"></div>
     <div class="activation-link">
-        <a th:href="@{${confirmationUrl}(code=${activation_code})}" target="_blank">Activate your account</a>
+        <a th:href="@{${confirmationUrl}(code=${activation_code})}">Activate your account</a>
     </div>
     <div class="footer">
         <p>If you didn’t request this email, please ignore it.</p>

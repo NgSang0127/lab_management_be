@@ -6,6 +6,4 @@ spring:
       enabled: true            # Kích hoạt multipart
       max-file-size: 50MB       # Kích thước file tối đa cho phép
       max-request-size: 50MB    # Kích thước request tối đa
-server:
-  servlet:
-    context-path: /api/v1
+

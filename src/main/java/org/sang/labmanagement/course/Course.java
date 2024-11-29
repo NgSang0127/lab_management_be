@@ -73,4 +73,5 @@ public class Course {
 	@JsonIgnoreProperties("courses")
 	private Semester semester;
 
+
 }

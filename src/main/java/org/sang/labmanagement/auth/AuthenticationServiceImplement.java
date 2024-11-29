@@ -1,10 +1,13 @@
 package org.sang.labmanagement.auth;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.mail.MessagingException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import java.io.IOException;
 import java.time.LocalDateTime;
 import java.util.HashMap;
+import java.util.Map;
 import lombok.RequiredArgsConstructor;
 import org.sang.labmanagement.auth.response.AuthenticationResponse;
 import org.sang.labmanagement.auth.request.LoginRequest;
@@ -23,6 +26,8 @@ import org.sang.labmanagement.user.User;
 import org.sang.labmanagement.user.UserRepository;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
@@ -86,7 +91,8 @@ public class AuthenticationServiceImplement implements AuthenticationService {
 		claims.put("fullName", user.getFullName());//more add field into jwt
 		var jwtToken = jwtService.generateToken(claims, user);
 		var refreshToken = jwtService.generateRefreshToken(user);
-		saveUserToken(user, jwtToken, refreshToken);
+		revokeAllUserTokens(user);
+		saveUserToken(user, jwtToken);
 
 		return AuthenticationResponse.builder()
 				.accessToken(jwtToken)
@@ -125,51 +131,72 @@ public class AuthenticationServiceImplement implements AuthenticationService {
 	}
 
 
+
+
 	@Override
-	public AuthenticationResponse refreshToken(HttpServletRequest request, HttpServletResponse response) {
+	public void refreshToken(HttpServletRequest request, HttpServletResponse response) throws IOException {
 		final String authHeader = request.getHeader(HttpHeaders.AUTHORIZATION);
 		final String refreshToken;
 		final String username;
+
+		// Kiểm tra xem header có hợp lệ không
 		if (authHeader == null || !authHeader.startsWith("Bearer ")) {
-			throw new OperationNotPermittedException("User not authenticated");
+			response.setStatus(HttpStatus.UNAUTHORIZED.value());
+			response.setContentType(MediaType.APPLICATION_JSON_VALUE);
+			new ObjectMapper().writeValue(response.getOutputStream(),
+					Map.of("error", "User not authenticated"));
+			return;
 		}
+
+		// Trích xuất refreshToken từ header
 		refreshToken = authHeader.substring(7);
 		username = jwtService.extractUsername(refreshToken);
-		if (username != null) {
-			var user = userRepository.findByUsername(username).orElseThrow(
-					() -> new UsernameNotFoundException("User not found")
-			);
 
-			if (jwtService.isTokenValid(refreshToken, user)) {
-				// Xóa các token cũ
-				var accessToken = jwtService.generateRefreshToken(user);
-				tokenRepo.save(
-						Token.builder()
-								.expired(false)
-								.revoked(false)
-								.token(accessToken)
-								.refreshToken(refreshToken)
-								.tokenType(TokenType.BEARER)
-								.user(user)
-								.build()
-				);
-				return AuthenticationResponse.builder()
-						.accessToken(accessToken)
-						.refreshToken(refreshToken)
-						.build();
-			}
+		// Kiểm tra xem username có tồn tại không
+		if (username == null) {
+			response.setStatus(HttpStatus.UNAUTHORIZED.value());
+			response.setContentType(MediaType.APPLICATION_JSON_VALUE);
+			new ObjectMapper().writeValue(response.getOutputStream(),
+					Map.of("error", "Username not found"));
+			return;
 		}
-		return null;
+
+		var user = userRepository.findByUsername(username).orElseThrow(
+				() -> new UsernameNotFoundException("User not found")
+		);
+
+		// Kiểm tra refreshToken có hợp lệ không
+		if (jwtService.isTokenValid(refreshToken, user)) {
+			// Tạo accessToken mới và lưu vào database
+			var accessToken = jwtService.generateToken(user);
+			revokeAllUserTokens(user);
+			saveUserToken(user, accessToken);
+
+			// Tạo phản hồi chứa accessToken và refreshToken
+			var authResponse = AuthenticationResponse.builder()
+					.accessToken(accessToken)
+					.refreshToken(refreshToken)
+					.build();
+
+			response.setStatus(HttpStatus.OK.value());
+			response.setContentType(MediaType.APPLICATION_JSON_VALUE);
+			new ObjectMapper().writeValue(response.getOutputStream(), authResponse);
+		} else {
+			response.setStatus(HttpStatus.FORBIDDEN.value());
+			response.setContentType(MediaType.APPLICATION_JSON_VALUE);
+			new ObjectMapper().writeValue(response.getOutputStream(),
+					Map.of("error", "Invalid refresh token"));
+		}
 	}
 
 
 
+
 	@Override
-	public void saveUserToken(User user, String jwtToken, String refreshToken) {
+	public void saveUserToken(User user, String jwtToken) {
 		var token = Token.builder()
 				.user(user)
 				.token(jwtToken)
-				.refreshToken(refreshToken)
 				.tokenType(TokenType.BEARER)
 				.expired(false)
 				.revoked(false)
@@ -189,6 +216,19 @@ public class AuthenticationServiceImplement implements AuthenticationService {
 				newCode,
 				"Account Activation"
 		);
+	}
+
+	@Override
+	public void revokeAllUserTokens(User user) {
+		var validUserTokens=tokenRepo.findAllValidTokenByUser(user.getId());
+		if(validUserTokens.isEmpty()) {
+			return;
+		}
+		validUserTokens.forEach(token->{
+			token.setExpired(true);
+			token.setRevoked(true);
+		});
+		tokenRepo.saveAll(validUserTokens);
 	}
 
 	@Override

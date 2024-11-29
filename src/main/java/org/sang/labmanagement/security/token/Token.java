@@ -37,8 +37,6 @@ public class Token {
 	@Column(unique = true,length = 512)
 	private String token;
 
-	@Column(unique = true,length= 255)
-	private String refreshToken;
 
 	@Enumerated(EnumType.STRING)
 	private TokenType tokenType=TokenType.BEARER;

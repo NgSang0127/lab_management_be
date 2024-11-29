@@ -3,6 +3,7 @@ package org.sang.labmanagement.auth;
 import jakarta.mail.MessagingException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import java.io.IOException;
 import org.sang.labmanagement.auth.response.AuthenticationResponse;
 import org.sang.labmanagement.auth.request.LoginRequest;
 import org.sang.labmanagement.auth.request.RegistrationRequest;
@@ -11,7 +12,6 @@ import org.springframework.security.core.Authentication;
 
 public interface AuthenticationService {
 
-	void saveUserToken(User user,String accessToken,String refreshToken);
 
 	AuthenticationResponse register(RegistrationRequest request) throws MessagingException;
 
@@ -23,7 +23,10 @@ public interface AuthenticationService {
 
 	void activateAccount(String code) throws MessagingException;
 
-	AuthenticationResponse refreshToken(HttpServletRequest request,
-			HttpServletResponse response);
+	void refreshToken(HttpServletRequest request,
+			HttpServletResponse response) throws IOException;
+	void saveUserToken(User user,String accessToken);
+
+	void revokeAllUserTokens(User user);
 
 }

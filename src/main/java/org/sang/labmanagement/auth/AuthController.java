@@ -10,20 +10,18 @@ import lombok.RequiredArgsConstructor;
 import org.sang.labmanagement.auth.request.LoginRequest;
 import org.sang.labmanagement.auth.request.RegistrationRequest;
 import org.sang.labmanagement.auth.response.AuthenticationResponse;
-import org.sang.labmanagement.user.User;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @RequiredArgsConstructor
-@RequestMapping("/auth")
+@RequestMapping("/api/v1/auth")
 public class AuthController {
 
 	@Value("${application.mailing.success-url}")
@@ -64,12 +62,12 @@ public class AuthController {
 
 
 	@PostMapping("/refresh-token")
-	public ResponseEntity<AuthenticationResponse>  refreshToken(
+	public void refreshToken(
 			HttpServletRequest request,
 			HttpServletResponse response
-			//lấy ra Header :authorization
 	) throws IOException {
-		return ResponseEntity.ok(authService.refreshToken(request, response));
+		System.out.println("Refresh token endpoint accessed");
+		authService.refreshToken(request, response);
 
 	}
 

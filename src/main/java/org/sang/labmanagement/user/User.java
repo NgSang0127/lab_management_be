@@ -70,9 +70,11 @@ public class User implements UserDetails , Principal {
 
 	private boolean enabled;
 
+	@JsonBackReference
 	@OneToOne(mappedBy = "user",cascade = CascadeType.ALL)
 	private Student student;
 
+	@JsonBackReference
 	@OneToOne(mappedBy = "user",cascade = CascadeType.ALL)
 	private Instructor instructor;
 
@@ -91,6 +93,7 @@ public class User implements UserDetails , Principal {
 	@JsonIgnore
 	@OneToMany(mappedBy = "user")
 	private List<EmailVerificationCode> emailCode;
+
 
 	public String getFullName(){
 		return lastName+" "+firstName;

@@ -28,7 +28,7 @@ public class SecurityConfig {
 
 	private final JwtFilter jwtFilter;
 	private final AuthenticationProvider authenticationProvider;
-	 private final LogoutHandler logoutHandler;
+	private final LogoutHandler logoutHandler;
 
 	@Bean
 	public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
@@ -37,6 +37,7 @@ public class SecurityConfig {
 				.cors(cors -> cors.configurationSource(corsConfigurationSource()))
 				.sessionManagement(management -> management.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
 				.authorizeHttpRequests(authorize -> authorize
+						.requestMatchers("/api/v1/auth/**").permitAll()
 						.requestMatchers("/admin/**").hasRole("ADMIN")
 						.requestMatchers("/teacher/**").hasRole("TEACHER")
 						.requestMatchers("/student/**").hasRole("STUDENT")
@@ -45,11 +46,11 @@ public class SecurityConfig {
 				)
 				.authenticationProvider(authenticationProvider)
 				.addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class)
-		 		.logout(logout ->
-		      logout.logoutUrl("/auth/logout")
-		            .addLogoutHandler(logoutHandler)
-		            .logoutSuccessHandler((request, response, authentication) -> SecurityContextHolder.clearContext())
-		 );
+				.logout(logout ->
+						logout.logoutUrl("/api/v1/auth/logout")
+								.addLogoutHandler(logoutHandler)
+								.logoutSuccessHandler((request, response, authentication) -> SecurityContextHolder.clearContext())
+				);
 		return http.build();
 	}
 
