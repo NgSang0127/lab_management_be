@@ -91,4 +91,27 @@ public class Timetable {
 	private Set<LocalDate> cancelDates;
 
 	private String description;
+
+	@Override
+	public String toString() {
+		return "Timetable{" +
+				"id=" + id +
+				", dayOfWeek=" + dayOfWeek +
+				", room=" + room +
+				", enrollments=" + enrollments +
+				", courses=" + courses +
+				", timetableName='" + timetableName + '\'' +
+				", instructor=" + instructor +
+				", numberOfStudents=" + numberOfStudents +
+				", startLesson=" + startLesson +
+				", totalLessonSemester=" + totalLessonSemester +
+				", totalLessonDay=" + totalLessonDay +
+				", classId='" + classId + '\'' +
+				", studyTime='" + studyTime + '\'' +
+				", startLessonTime=" + startLessonTime +
+				", endLessonTime=" + endLessonTime +
+				", cancelDates=" + cancelDates +
+				", description='" + description + '\'' +
+				'}';
+	}
 }

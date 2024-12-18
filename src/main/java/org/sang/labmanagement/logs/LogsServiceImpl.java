@@ -1,5 +1,6 @@
 package org.sang.labmanagement.logs;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
@@ -7,6 +8,8 @@ import lombok.RequiredArgsConstructor;
 import org.sang.labmanagement.common.PageResponse;
 import org.sang.labmanagement.course.Course;
 import org.sang.labmanagement.course.CourseRepository;
+import org.sang.labmanagement.logs.dto.CourseLogStatistics;
+import org.sang.labmanagement.logs.dto.DailyLogStatistics;
 import org.sang.labmanagement.user.User;
 import org.sang.labmanagement.user.UserRepository;
 import org.springframework.data.domain.Page;
@@ -51,7 +54,6 @@ public class LogsServiceImpl implements LogsService {
 					.userAgent(userAgent)
 					.build();
 
-			// Save the log to the repository
 			logRepository.save(logs);
 		} else {
 			// Log or throw exception if principal is not a User
@@ -90,5 +92,15 @@ public class LogsServiceImpl implements LogsService {
 	public List<Logs> getLogsByUser(Long userId) {
 		Optional<User> userOpt = userRepository.findById(userId);
 		return userOpt.map(logRepository::findByUser).orElse(null);
+	}
+
+	@Override
+	public List<DailyLogStatistics> getDailyLogStatistics(LocalDate startDate, LocalDate endDate) {
+		return logRepository.findLogsGroupByDate(startDate.atStartOfDay(), endDate.atTime(23,59,59));
+	}
+
+	@Override
+	public List<CourseLogStatistics> getCourseLogStatistics(LocalDate startDate, LocalDate endDate) {
+		return logRepository.findLogsGroupByCourse(startDate.atStartOfDay(), endDate.atTime(23, 59, 59));
 	}
 }

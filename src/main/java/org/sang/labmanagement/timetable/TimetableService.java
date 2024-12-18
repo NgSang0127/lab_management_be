@@ -23,6 +23,7 @@ public interface TimetableService {
 
 	Timetable createTimetable(CreateTimetableRequest request);
 
-	Timetable getTimetableByClassIdAndNhAndTh(String code,String NH,String TH,String timetableName);
+	Timetable getTimetableByCourse(String courseId,String NH,String TH,String studyTime);
+	Timetable getTimetableByTimetableName(String timetableName);
 
 }

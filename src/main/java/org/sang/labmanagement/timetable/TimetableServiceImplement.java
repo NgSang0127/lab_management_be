@@ -25,6 +25,7 @@ import org.apache.poi.ss.usermodel.Row;
 import org.apache.poi.ss.usermodel.Sheet;
 import org.apache.poi.ss.usermodel.Workbook;
 import org.apache.poi.ss.usermodel.WorkbookFactory;
+import org.apache.poi.ss.util.CellRangeAddress;
 import org.sang.labmanagement.course.Course;
 import org.sang.labmanagement.course.CourseRepository;
 import org.sang.labmanagement.room.Room;
@@ -41,6 +42,7 @@ import org.sang.labmanagement.user.UserRepository;
 import org.sang.labmanagement.user.instructor.Department;
 import org.sang.labmanagement.user.instructor.Instructor;
 import org.sang.labmanagement.user.instructor.InstructorRepository;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -64,6 +66,7 @@ public class TimetableServiceImplement implements TimetableService {
 	private final CourseRepository courseRepository;
 	private final SemesterRepository semesterRepository;
 	private final LessonTimeRepository lessonTimeRepository;
+	private final PasswordEncoder passwordEncoder;
 
 	@Override
 	public Timetable createTimetable(Timetable timetable) {
@@ -241,10 +244,22 @@ public class TimetableServiceImplement implements TimetableService {
 	}
 
 
+
 	@Override
-	public Timetable getTimetableByClassIdAndNhAndTh(String code, String NH, String TH,String timetableName) {
-		return timetableRepository.findByCourseOrTimetableName(code,NH,TH,timetableName);
+	public Timetable getTimetableByCourse(String courseId, String NH, String TH,String studyTime) {
+		// Tìm timetable dựa trên thông tin môn học
+		System.out.println(timetableRepository.findByCourseAndStudyTime(courseId, NH, TH,studyTime));
+		return timetableRepository.findByCourseAndStudyTime(courseId, NH, TH,studyTime);
 	}
+
+	@Override
+	public Timetable getTimetableByTimetableName(String timetableName) {
+		// Tìm timetable dựa trên tên thời khóa biểu
+		return timetableRepository.findByTimetableName(timetableName);
+	}
+
+
+
 
 
 	@Override
@@ -354,7 +369,15 @@ public class TimetableServiceImplement implements TimetableService {
 				TH = TH.isEmpty() ? previousTH : (previousTH = TH);
 				String classId = getMergedCellValue(row, 10);
 				classId = classId.isEmpty() ? previousClassId : (previousClassId = classId);
-				int numberOfStudents = (int) getNumericCellValue(row, 11);
+				String numberOfStudentsStr = getMergedCellValue(row, 11);
+				int numberOfStudents = 0;
+				try {
+					// Chuyển đổi từ String sang int nếu có giá trị hợp lệ
+					numberOfStudents = Integer.parseInt(numberOfStudentsStr);
+				} catch (NumberFormatException e) {
+					// Nếu không thể chuyển đổi, sử dụng giá trị mặc định hoặc xử lý ngoại lệ
+					System.out.println("Invalid number format: " + numberOfStudentsStr);
+				}
 				if (numberOfStudents >= 0) {
 					previousNumberOfStudents = numberOfStudents;
 				} else {
@@ -376,6 +399,8 @@ public class TimetableServiceImplement implements TimetableService {
 						User user = User.builder()
 								.firstName(firstName)
 								.lastName(lastName)
+								.password(passwordEncoder.encode(username))
+								.enabled(true)
 								.username(username) // Mã viên chức
 								.role(Role.TEACHER)
 								.build();
@@ -649,12 +674,35 @@ public class TimetableServiceImplement implements TimetableService {
 		Cell cell = row.getCell(cellIndex);
 		if (cell != null) {
 			// Kiểm tra xem ô có phải là ô đầu tiên trong ô ghép không
-			if (cell.getCellType() == CellType.STRING) {
+			if (isMergedCell(row.getSheet(), row.getRowNum(), cellIndex)) {
+				// Nếu là ô đầu tiên trong vùng ghép, trả về giá trị của ô đó
 				return cell.getStringCellValue().trim();
+			} else {
+				// Nếu không phải ô đầu tiên, trả về giá trị của ô trong hàng trước
+				Row previousRow = row.getSheet().getRow(row.getRowNum() - 1);
+				if (previousRow != null) {
+					Cell previousCell = previousRow.getCell(cellIndex);
+					if (previousCell != null) {
+						return previousCell.getStringCellValue().trim(); // Lấy giá trị từ hàng trước
+					}
+				}
 			}
 		}
 		return ""; // Trả về giá trị rỗng nếu không có giá trị
 	}
+
+	// Kiểm tra xem ô hiện tại có phải là ô đầu tiên trong vùng ghép
+	private boolean isMergedCell(Sheet sheet, int rowNum, int columnNum) {
+		for (int i = 0; i < sheet.getNumMergedRegions(); i++) {
+			CellRangeAddress range = sheet.getMergedRegion(i);
+			if (range.isInRange(rowNum, columnNum)) {
+				// Nếu ô hiện tại là ô đầu tiên trong vùng ghép, trả về true
+				return range.getFirstRow() == rowNum && range.getFirstColumn() == columnNum;
+			}
+		}
+		return false;
+	}
+
 
 
 	private void extractLessonTimes(Row row) {

@@ -8,6 +8,7 @@ import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import lombok.RequiredArgsConstructor;
 
+import org.sang.labmanagement.activity.UserActivityLogService;
 import org.sang.labmanagement.security.token.TokenRepository;
 import org.springframework.http.HttpHeaders;
 import org.springframework.lang.NonNull;
@@ -26,7 +27,9 @@ public class JwtFilter extends OncePerRequestFilter {
 	private final JwtService jwtService;
 	private final UserDetailsService userDetailsService;
 	private final TokenRepository tokenRepository;
+	private final UserActivityLogService userActivityService;
 
+	private static final String AUTH_PATH = "/api/v1/auth";
 	@Override
 	protected void doFilterInternal(
 			@NonNull HttpServletRequest request,
@@ -35,7 +38,7 @@ public class JwtFilter extends OncePerRequestFilter {
 			throws ServletException, IOException {
 
 		// Bỏ qua các request liên quan đến authentication
-		if (request.getServletPath().contains("/api/v1/auth")) {
+		if (request.getServletPath().contains(AUTH_PATH)) {
 			filterChain.doFilter(request, response);
 			return;
 		}
@@ -65,6 +68,7 @@ public class JwtFilter extends OncePerRequestFilter {
 							userDetails, null, userDetails.getAuthorities());
 					authToken.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
 					SecurityContextHolder.getContext().setAuthentication(authToken);
+
 				} else {
 					response.sendError(HttpServletResponse.SC_UNAUTHORIZED, "Token expired or invalid");
 					return;
@@ -83,4 +87,6 @@ public class JwtFilter extends OncePerRequestFilter {
 		// Tiếp tục với chuỗi bộ lọc
 		filterChain.doFilter(request, response);
 	}
+
+
 }

@@ -60,10 +60,20 @@ public class TimetableController {
 			@RequestParam(required = false) String courseId,
 			@RequestParam(required = false) String NH,
 			@RequestParam(required = false) String TH,
+			@RequestParam(required = false) String studyTime,
 			@RequestParam(required = false) String timetableName
 	) {
+		Timetable timetable;
 
-		Timetable timetable = timetableService.getTimetableByClassIdAndNhAndTh(courseId, NH, TH, timetableName);
+		if (courseId != null && NH != null && TH != null && studyTime !=null) {
+			// Tìm theo Course nếu có courseId, NH, và TH
+			timetable = timetableService.getTimetableByCourse(courseId, NH, TH,studyTime);
+		} else if (timetableName != null) {
+			// Tìm theo timetableName nếu không có Course
+			timetable = timetableService.getTimetableByTimetableName(timetableName);
+		} else {
+			return ResponseEntity.badRequest().build(); // Trả về lỗi nếu không có thông tin tìm kiếm
+		}
 
 		if (timetable != null) {
 			return ResponseEntity.ok(timetable);
@@ -71,6 +81,7 @@ public class TimetableController {
 			return ResponseEntity.notFound().build();
 		}
 	}
+
 
 
 	@PostMapping("/cancel")

@@ -9,6 +9,8 @@ import java.time.format.DateTimeFormatter;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.sang.labmanagement.common.PageResponse;
+import org.sang.labmanagement.logs.dto.CourseLogStatistics;
+import org.sang.labmanagement.logs.dto.DailyLogStatistics;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
@@ -58,4 +60,21 @@ public class LogsController {
 		return logService.getLogsByUser(userId);
 	}
 
+	@GetMapping("/statistics/daily")
+	public ResponseEntity<List<DailyLogStatistics>> getDailyLogStatistics(
+			@RequestParam @DateTimeFormat(pattern = "dd/MM/yyyy") LocalDate startDate,
+			@RequestParam @DateTimeFormat(pattern = "dd/MM/yyyy") LocalDate endDate
+	) {
+		List<DailyLogStatistics> stats = logService.getDailyLogStatistics(startDate, endDate);
+		return ResponseEntity.ok(stats);
+	}
+
+	@GetMapping("/statistics/course")
+	public ResponseEntity<List<CourseLogStatistics>>getCourseLogStatistics(
+			@RequestParam @DateTimeFormat(pattern = "dd/MM/yyyy") LocalDate startDate,
+			@RequestParam @DateTimeFormat(pattern = "dd/MM/yyyy") LocalDate endDate
+	){
+		List<CourseLogStatistics>stats=logService.getCourseLogStatistics(startDate, endDate);
+		return ResponseEntity.ok(stats);
+	}
 }
