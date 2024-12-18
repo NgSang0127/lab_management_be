@@ -8,11 +8,15 @@ import java.io.IOException;
 import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Optional;
 import lombok.RequiredArgsConstructor;
+import org.sang.labmanagement.auth.request.ChangePasswordRequest;
+import org.sang.labmanagement.auth.request.ForgotPasswordRequest;
+import org.sang.labmanagement.auth.request.ResetPasswordRequest;
+import org.sang.labmanagement.auth.request.UpdateInformationUser;
 import org.sang.labmanagement.auth.response.AuthenticationResponse;
 import org.sang.labmanagement.auth.request.LoginRequest;
 import org.sang.labmanagement.auth.request.RegistrationRequest;
-import org.sang.labmanagement.exception.OperationNotPermittedException;
 import org.sang.labmanagement.security.email.EmailService;
 import org.sang.labmanagement.security.email.EmailTemplateName;
 import org.sang.labmanagement.security.email.EmailVerificationCode;
@@ -34,6 +38,7 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 @Service
 @RequiredArgsConstructor
@@ -42,6 +47,9 @@ public class AuthenticationServiceImplement implements AuthenticationService {
 	@Value("${application.mailing.backend.activation-url}")
 	private String activationUrl;
 
+	@Value("${application.mailing.backend.reset-password-url}")
+	private String resetPasswordUrl;
+
 	private final UserRepository userRepository;
 	private final PasswordEncoder passwordEncoder;
 	private final EmailService emailService;
@@ -49,6 +57,7 @@ public class AuthenticationServiceImplement implements AuthenticationService {
 	private final EmailVerificationRepository emailCodeRepository;
 	private final AuthenticationManager authenticationManager;
 	private final JwtService jwtService;
+
 
 	@Override
 	public AuthenticationResponse register(RegistrationRequest request) throws MessagingException {
@@ -62,14 +71,10 @@ public class AuthenticationServiceImplement implements AuthenticationService {
 				.username(request.getUsername())
 				.phoneNumber(request.getPhoneNumber())
 				.password(passwordEncoder.encode(request.getPassword()))
+				.role(Role.STUDENT)
 				.accountLocked(false)
 				.enabled(false)
 				.build();
-		if (request.getUsername().startsWith("ITIT")) {
-			savedUser.setRole(Role.STUDENT);
-		} else if (request.getUsername().startsWith("IU")) {
-			savedUser.setRole(Role.TEACHER);
-		}
 		userRepository.save(savedUser);
 		sendValidationEmail(savedUser);
 		return AuthenticationResponse.builder()
@@ -98,6 +103,34 @@ public class AuthenticationServiceImplement implements AuthenticationService {
 				.accessToken(jwtToken)
 				.refreshToken(refreshToken)
 				.build();
+	}
+	@Override
+	public void saveUserToken(User user, String jwtToken) {
+		Optional<Token> existingToken = tokenRepo.findByToken(jwtToken);
+		if (existingToken.isPresent()) {
+			throw new IllegalStateException("Duplicate token detected. This token already exists.");
+		}
+		var token = Token.builder()
+				.user(user)
+				.token(jwtToken)
+				.tokenType(TokenType.BEARER)
+				.expired(false)
+				.revoked(false)
+				.build();
+		tokenRepo.save(token);
+	}
+
+	@Override
+	public void revokeAllUserTokens(User user) {
+		var validUserTokens=tokenRepo.findAllValidTokenByUser(user.getId());
+		if(validUserTokens.isEmpty()) {
+			return;
+		}
+		validUserTokens.forEach(token->{
+			token.setExpired(true);
+			token.setRevoked(true);
+		});
+		tokenRepo.saveAll(validUserTokens);
 	}
 
 	@Override
@@ -192,17 +225,6 @@ public class AuthenticationServiceImplement implements AuthenticationService {
 
 
 
-	@Override
-	public void saveUserToken(User user, String jwtToken) {
-		var token = Token.builder()
-				.user(user)
-				.token(jwtToken)
-				.tokenType(TokenType.BEARER)
-				.expired(false)
-				.revoked(false)
-				.build();
-		tokenRepo.save(token);
-	}
 
 	@Override
 	public void sendValidationEmail(User user) throws MessagingException {
@@ -218,21 +240,99 @@ public class AuthenticationServiceImplement implements AuthenticationService {
 		);
 	}
 
-	@Override
-	public void revokeAllUserTokens(User user) {
-		var validUserTokens=tokenRepo.findAllValidTokenByUser(user.getId());
-		if(validUserTokens.isEmpty()) {
-			return;
-		}
-		validUserTokens.forEach(token->{
-			token.setExpired(true);
-			token.setRevoked(true);
-		});
-		tokenRepo.saveAll(validUserTokens);
-	}
+
 
 	@Override
 	public User findUser(Authentication connectedUser) {
 		return (User) connectedUser.getPrincipal();
+	}
+
+	@Override
+	public boolean changePassword(ChangePasswordRequest request, Authentication connectedUser) {
+		User user=(User) connectedUser.getPrincipal();
+		if(user == null){
+			return false;
+		}
+		if(!passwordEncoder.matches(request.getCurrentPassword(),user.getPassword())){
+			return false;
+		}
+		if(request.getNewPassword().length() < 8){
+			return false;
+		}
+		user.setPassword(passwordEncoder.encode(request.getNewPassword()));
+		userRepository.save(user);
+		return true;
+	}
+
+	@Override
+	@Transactional
+	public String forgotPassword(ForgotPasswordRequest request) throws MessagingException {
+		Optional<User> userOpt = userRepository.findByEmail(request.getEmail());
+		if (userOpt.isEmpty()) {
+			return "Email does not exist";
+		}
+
+		User user = userOpt.get();
+		String resetPasswordCode = emailService.generateAndSaveActivationCode(user);
+
+		try {
+			emailService.sendEmail(
+					user.getEmail(),
+					user.getFullName(),
+					EmailTemplateName.RESET_PASSWORD,
+					resetPasswordUrl,
+					resetPasswordCode,
+					"Reset Your Password"
+			);
+		} catch (MessagingException e) {
+			return "Failed to send email. Please try again later.";
+		}
+
+		return "A reset password code has been sent to your email!";
+	}
+
+	@Override
+	public String validateResetCode(ResetPasswordRequest request) throws MessagingException {
+		EmailVerificationCode resetCode=emailCodeRepository.findByCode(request.getCode()).orElse(null);
+		if(resetCode == null || resetCode.isExpired()){
+			return  "Invalid or expired reset code";
+		}
+		return "Reset code is valid";
+	}
+
+	@Override
+	@Transactional
+	public String resetPassword(ResetPasswordRequest request) throws MessagingException {
+		EmailVerificationCode resetCode=emailCodeRepository.findByCode(request.getCode()).orElse(null);
+		if(resetCode == null || resetCode.isExpired()){
+			return  "Invalid or expired reset code";
+		}
+		User user=resetCode.getUser();
+		String encodedPassword = passwordEncoder.encode(request.getNewPassword());
+		user.setPassword(encodedPassword);
+		userRepository.save(user);
+
+		resetCode.validate();
+		emailCodeRepository.save(resetCode);
+
+		return "Password reset successfully";
+	}
+
+	@Override
+	@Transactional
+	public boolean updateInformationUser(UpdateInformationUser request, Authentication connectedUser) {
+		User user=(User) connectedUser.getPrincipal();
+		if(user !=null){
+			user.setFirstName(request.getFirstName());
+			user.setLastName(request.getLastName());
+			user.setEmail(request.getEmail());
+			user.setImage(request.getImage());
+			user.setPhoneNumber(request.getPhoneNumber());
+			user.setUsername(request.getUsername());
+			userRepository.save(user);
+			return true;
+		}
+		return false;
+
 	}
 }

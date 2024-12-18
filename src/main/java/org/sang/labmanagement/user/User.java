@@ -90,9 +90,16 @@ public class User implements UserDetails , Principal {
 	@OneToMany(mappedBy = "user")
 	private List<Token> token;
 
+	@Column(length = 1000)
+	private String image;
+
 	@JsonIgnore
-	@OneToMany(mappedBy = "user")
+	@OneToMany(mappedBy = "user",cascade = CascadeType.ALL)
 	private List<EmailVerificationCode> emailCode;
+
+//	@JsonIgnore
+//	@OneToMany(mappedBy = "user",cascade = CascadeType.ALL)
+//	private List<UserActivity> userActivities;
 
 
 	public String getFullName(){

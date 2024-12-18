@@ -4,6 +4,10 @@ import jakarta.mail.MessagingException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
+import org.sang.labmanagement.auth.request.ChangePasswordRequest;
+import org.sang.labmanagement.auth.request.ForgotPasswordRequest;
+import org.sang.labmanagement.auth.request.ResetPasswordRequest;
+import org.sang.labmanagement.auth.request.UpdateInformationUser;
 import org.sang.labmanagement.auth.response.AuthenticationResponse;
 import org.sang.labmanagement.auth.request.LoginRequest;
 import org.sang.labmanagement.auth.request.RegistrationRequest;
@@ -25,8 +29,20 @@ public interface AuthenticationService {
 
 	void refreshToken(HttpServletRequest request,
 			HttpServletResponse response) throws IOException;
+
 	void saveUserToken(User user,String accessToken);
 
 	void revokeAllUserTokens(User user);
+
+	boolean changePassword(ChangePasswordRequest request,Authentication connectedUser);
+
+	String forgotPassword(ForgotPasswordRequest request) throws MessagingException;
+
+	String resetPassword(ResetPasswordRequest request) throws MessagingException;
+
+	String validateResetCode(ResetPasswordRequest request) throws MessagingException;
+
+	boolean updateInformationUser(UpdateInformationUser request,Authentication connectedUser);
+
 
 }
