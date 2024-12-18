@@ -41,4 +41,18 @@ public class EmailVerificationCode {
 	@JoinColumn(name = "user_id")
 	private User user;
 
+	public boolean isExpired() {
+		return expiresAt.isBefore(LocalDateTime.now());
+	}
+
+	// Kiểm tra mã có được xác nhận chưa
+	public boolean isValidated() {
+		return validatedAt != null;
+	}
+
+	// Xác nhận mã và lưu thời gian xác nhận
+	public void validate() {
+		this.validatedAt = LocalDateTime.now();
+	}
+
 }
