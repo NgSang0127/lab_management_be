@@ -26,8 +26,9 @@ import org.springframework.stereotype.Service;
 @RequiredArgsConstructor
 public class UserActivityLogService {
 
-	private final UserActivityLogRepository userActivityRepository;
+	private final UserActivityLogRepository userActivityLogRepository;
 	private final UserRepository userRepository;
+	private final UserActivityEventRepository userActivityEventRepository;
 
 
 	// Start a new session for the user
