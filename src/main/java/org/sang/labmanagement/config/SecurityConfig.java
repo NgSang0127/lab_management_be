@@ -38,7 +38,8 @@ public class SecurityConfig {
 				.sessionManagement(management -> management.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
 				.authorizeHttpRequests(authorize -> authorize
 						.requestMatchers("/api/v1/auth/**").permitAll()
-						.requestMatchers("/admin/**").hasRole("ADMIN")
+//						.requestMatchers("/ws-notifications/**").permitAll()
+						.requestMatchers("/api/v1/admin/**").hasRole("ADMIN")
 						.requestMatchers("/teacher/**").hasRole("TEACHER")
 						.requestMatchers("/student/**").hasRole("STUDENT")
 						.requestMatchers("/api/v1/**").authenticated()
@@ -57,10 +58,11 @@ public class SecurityConfig {
 	private CorsConfigurationSource corsConfigurationSource() {
 		return request -> {
 			CorsConfiguration corsConfig = new CorsConfiguration();
-			corsConfig.setAllowedOrigins(List.of("http://localhost:5173")); // Frontend URL
+			corsConfig.setAllowedOrigins(List.of("http://localhost:5173","http://localhost:5174")); // Frontend URL
 			corsConfig.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
 			corsConfig.setAllowedHeaders(List.of("*"));
 			corsConfig.setExposedHeaders(List.of("Authorization"));
+			corsConfig.setExposedHeaders(List.of("Content-Disposition"));
 			corsConfig.setAllowCredentials(true); // If you need to send cookies with requests
 			corsConfig.setMaxAge(3600L);
 			return corsConfig;

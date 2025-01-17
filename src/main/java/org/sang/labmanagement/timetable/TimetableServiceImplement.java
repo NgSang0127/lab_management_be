@@ -1,13 +1,12 @@
 package org.sang.labmanagement.timetable;
 
 import java.io.InputStream;
+import java.text.SimpleDateFormat;
 import java.time.DayOfWeek;
 import java.time.LocalDate;
-import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
-import java.time.temporal.TemporalAdjusters;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Comparator;
@@ -21,6 +20,9 @@ import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import org.apache.poi.ss.usermodel.Cell;
 import org.apache.poi.ss.usermodel.CellType;
+import org.apache.poi.ss.usermodel.CellValue;
+import org.apache.poi.ss.usermodel.DateUtil;
+import org.apache.poi.ss.usermodel.FormulaEvaluator;
 import org.apache.poi.ss.usermodel.Row;
 import org.apache.poi.ss.usermodel.Sheet;
 import org.apache.poi.ss.usermodel.Workbook;
@@ -33,8 +35,8 @@ import org.sang.labmanagement.room.RoomRepository;
 import org.sang.labmanagement.room.RoomStatus;
 import org.sang.labmanagement.semester.Semester;
 import org.sang.labmanagement.semester.SemesterRepository;
-import org.sang.labmanagement.timetable.LessonTime.LessonTime;
-import org.sang.labmanagement.timetable.LessonTime.LessonTimeRepository;
+import org.sang.labmanagement.timetable.lesson_time.LessonTime;
+import org.sang.labmanagement.timetable.lesson_time.LessonTimeRepository;
 import org.sang.labmanagement.timetable.request.CreateTimetableRequest;
 import org.sang.labmanagement.user.Role;
 import org.sang.labmanagement.user.User;
@@ -68,10 +70,7 @@ public class TimetableServiceImplement implements TimetableService {
 	private final LessonTimeRepository lessonTimeRepository;
 	private final PasswordEncoder passwordEncoder;
 
-	@Override
-	public Timetable createTimetable(Timetable timetable) {
-		return timetableRepository.save(timetable);
-	}
+
 
 	@Override
 	public List<Timetable> getAllTimetableByWeek(LocalDate startDate, LocalDate endDate) {
@@ -259,9 +258,6 @@ public class TimetableServiceImplement implements TimetableService {
 	}
 
 
-
-
-
 	@Override
 	public Timetable createTimetable(CreateTimetableRequest request) {
 		Room room = roomRepository.findByName(request.getRoomName());
@@ -364,9 +360,18 @@ public class TimetableServiceImplement implements TimetableService {
 				int credits = (int) getNumericCellValue(row, 7);
 				credits = (credits == 0) ? previousCredits : (previousCredits = credits);
 				String NH = getMergedCellValue(row, 8);
-				NH = NH.isEmpty() ? previousNH : (previousNH = NH);
+				if (!NH.isEmpty()) {
+					previousNH = NH;
+				} else {
+					NH = "0";
+				}
+
 				String TH = getMergedCellValue(row, 9);
-				TH = TH.isEmpty() ? previousTH : (previousTH = TH);
+				if (!TH.isEmpty()) {
+					previousTH = TH;
+				} else {
+					TH = "0";
+				}
 				String classId = getMergedCellValue(row, 10);
 				classId = classId.isEmpty() ? previousClassId : (previousClassId = classId);
 				String numberOfStudentsStr = getMergedCellValue(row, 11);
@@ -673,34 +678,52 @@ public class TimetableServiceImplement implements TimetableService {
 	private String getMergedCellValue(Row row, int cellIndex) {
 		Cell cell = row.getCell(cellIndex);
 		if (cell != null) {
-			// Kiểm tra xem ô có phải là ô đầu tiên trong ô ghép không
-			if (isMergedCell(row.getSheet(), row.getRowNum(), cellIndex)) {
-				// Nếu là ô đầu tiên trong vùng ghép, trả về giá trị của ô đó
-				return cell.getStringCellValue().trim();
-			} else {
-				// Nếu không phải ô đầu tiên, trả về giá trị của ô trong hàng trước
-				Row previousRow = row.getSheet().getRow(row.getRowNum() - 1);
-				if (previousRow != null) {
-					Cell previousCell = previousRow.getCell(cellIndex);
-					if (previousCell != null) {
-						return previousCell.getStringCellValue().trim(); // Lấy giá trị từ hàng trước
+			Sheet sheet = row.getSheet();
+			// Iterate through all merged regions to check if the current cell is part of any
+			for (int i = 0; i < sheet.getNumMergedRegions(); i++) {
+				CellRangeAddress range = sheet.getMergedRegion(i);
+				if (range.isInRange(row.getRowNum(), cellIndex)) {
+					// Retrieve the first cell of the merged region
+					Row firstRow = sheet.getRow(range.getFirstRow());
+					if (firstRow != null) {
+						Cell firstCell = firstRow.getCell(range.getFirstColumn());
+						if (firstCell != null) {
+							return getStringCellValue(firstCell).trim();
+						}
 					}
 				}
 			}
+			// If the cell is not part of any merged region, return its own value
+			return getStringCellValue(cell).trim();
 		}
-		return ""; // Trả về giá trị rỗng nếu không có giá trị
+		return "";
 	}
 
-	// Kiểm tra xem ô hiện tại có phải là ô đầu tiên trong vùng ghép
-	private boolean isMergedCell(Sheet sheet, int rowNum, int columnNum) {
-		for (int i = 0; i < sheet.getNumMergedRegions(); i++) {
-			CellRangeAddress range = sheet.getMergedRegion(i);
-			if (range.isInRange(rowNum, columnNum)) {
-				// Nếu ô hiện tại là ô đầu tiên trong vùng ghép, trả về true
-				return range.getFirstRow() == rowNum && range.getFirstColumn() == columnNum;
-			}
+	private String getStringCellValue(Cell cell) {
+		if (cell == null) return "";
+		switch (cell.getCellType()) {
+			case STRING:
+				return cell.getStringCellValue();
+			case NUMERIC:
+				if (DateUtil.isCellDateFormatted(cell)) {
+					return new SimpleDateFormat("dd/MM/yyyy HH:mm").format(cell.getDateCellValue());
+				}
+				return String.valueOf((int) cell.getNumericCellValue());
+			case BOOLEAN:
+				return String.valueOf(cell.getBooleanCellValue());
+			case FORMULA:
+				// Optionally, evaluate the formula and return the result
+				FormulaEvaluator evaluator = cell.getSheet().getWorkbook().getCreationHelper().createFormulaEvaluator();
+				CellValue cellValue = evaluator.evaluate(cell);
+				return switch (cellValue.getCellType()) {
+					case STRING -> cellValue.getStringValue();
+					case NUMERIC -> String.valueOf((int) cellValue.getNumberValue());
+					case BOOLEAN -> String.valueOf(cellValue.getBooleanValue());
+					default -> "";
+				};
+			default:
+				return "";
 		}
-		return false;
 	}
 
 

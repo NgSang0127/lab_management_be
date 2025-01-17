@@ -10,6 +10,7 @@ import jakarta.persistence.Entity;
 import jakarta.persistence.EntityListeners;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
+import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
@@ -19,14 +20,16 @@ import java.security.Principal;
 import java.time.LocalDateTime;
 import java.util.Collection;
 import java.util.List;
+import java.util.Set;
 import javax.security.auth.Subject;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
-import org.sang.labmanagement.security.email.EmailVerificationCode;
-import org.sang.labmanagement.security.token.Token;
+//import org.sang.labmanagement.notification.Notification;
+//import org.sang.labmanagement.security.email.EmailVerificationCode;
+//import org.sang.labmanagement.security.token.Token;
 import org.sang.labmanagement.user.instructor.Instructor;
 import org.sang.labmanagement.user.student.Student;
 import org.springframework.data.annotation.CreatedDate;
@@ -86,16 +89,19 @@ public class User implements UserDetails , Principal {
 	@Column(insertable = false)
 	private LocalDateTime lastModifiedDate;
 
-	@JsonIgnore
-	@OneToMany(mappedBy = "user")
-	private List<Token> token;
+//	@JsonIgnore
+//	@OneToMany(mappedBy = "user")
+//	private List<Token> token;
 
 	@Column(length = 1000)
 	private String image;
 
-	@JsonIgnore
-	@OneToMany(mappedBy = "user",cascade = CascadeType.ALL)
-	private List<EmailVerificationCode> emailCode;
+//	@OneToMany(mappedBy = "user", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
+//	private Set<Notification> notifications;
+
+//	@JsonIgnore
+//	@OneToMany(mappedBy = "user",cascade = CascadeType.ALL)
+//	private List<EmailVerificationCode> emailCode;
 
 //	@JsonIgnore
 //	@OneToMany(mappedBy = "user",cascade = CascadeType.ALL)

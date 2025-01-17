@@ -1,11 +1,8 @@
 package org.sang.labmanagement.logs;
 
 
-
-import jakarta.servlet.http.HttpServletRequest;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.time.format.DateTimeFormatter;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.sang.labmanagement.common.PageResponse;
@@ -28,8 +25,8 @@ public class LogsController {
 
 	@GetMapping("/between")
 	public ResponseEntity<PageResponse<Logs>> getLogsBetween(
-			@RequestParam LocalDate startDate,
-			@RequestParam LocalDate endDate,
+			@RequestParam @DateTimeFormat(pattern = "dd/MM/yyyy") LocalDate startDate,
+			@RequestParam @DateTimeFormat(pattern = "dd/MM/yyyy") LocalDate endDate,
 			@RequestParam(name = "page", defaultValue = "0", required = false) int page,
 			@RequestParam(name = "size", defaultValue = "10", required = false) int size
 	) {

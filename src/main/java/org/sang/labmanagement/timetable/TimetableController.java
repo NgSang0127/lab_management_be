@@ -6,8 +6,8 @@ import java.util.List;
 import java.util.Map;
 import lombok.RequiredArgsConstructor;
 import org.sang.labmanagement.timetable.request.CreateTimetableRequest;
+import org.sang.labmanagement.utils.TrackUserActivity;
 import org.springframework.format.annotation.DateTimeFormat;
-import org.springframework.format.annotation.DateTimeFormat.ISO;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -24,10 +24,6 @@ public class TimetableController {
 
 	private final TimetableService timetableService;
 
-	@PostMapping
-	private ResponseEntity<Timetable> createTimetable(@RequestBody Timetable timetable){
-		return ResponseEntity.ok(timetableService.createTimetable(timetable));
-	}
 
 	@GetMapping("/by-week")
 	public ResponseEntity<List<Timetable>> getTimetablesByWeek(
@@ -55,6 +51,7 @@ public class TimetableController {
 		}
 	}
 
+	@TrackUserActivity
 	@GetMapping("/course-details")
 	public ResponseEntity<Timetable> getTimetableByClassIdAndNhAndTH(
 			@RequestParam(required = false) String courseId,
@@ -65,7 +62,7 @@ public class TimetableController {
 	) {
 		Timetable timetable;
 
-		if (courseId != null && NH != null && TH != null && studyTime !=null) {
+		if (courseId != null && NH != null  && studyTime !=null) {
 			// Tìm theo Course nếu có courseId, NH, và TH
 			timetable = timetableService.getTimetableByCourse(courseId, NH, TH,studyTime);
 		} else if (timetableName != null) {

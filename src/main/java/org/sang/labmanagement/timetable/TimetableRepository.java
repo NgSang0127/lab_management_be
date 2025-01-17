@@ -23,10 +23,6 @@ public interface TimetableRepository extends JpaRepository<Timetable,Long> {
 	Timetable findByTimetableName(String timetableName);
 
 
-
-
-
-
 	@Query("""
             SELECT t FROM Timetable t
             JOIN t.room r

@@ -1,4 +1,4 @@
-package org.sang.labmanagement.timetable.LessonTime;
+package org.sang.labmanagement.timetable.lesson_time;
 
 import java.util.List;
 import lombok.RequiredArgsConstructor;
@@ -14,8 +14,9 @@ public class LessonTimeController {
 
 	private final LessonTimeService lessonTimeService;
 
+
 	@GetMapping
-	private ResponseEntity<List<LessonTime>>getAllLessonTime(){
+	public ResponseEntity<List<LessonTime>>getAllLessonTime(){
 		return ResponseEntity.ok(lessonTimeService.getAllLessonTime());
 	}
 

@@ -9,7 +9,6 @@ import org.springframework.web.multipart.MultipartFile;
 
 public interface TimetableService {
 
-	Timetable createTimetable(Timetable timetable);
 
 	List<Timetable> getAllTimetableByWeek(LocalDate startDate,LocalDate endDate);
 

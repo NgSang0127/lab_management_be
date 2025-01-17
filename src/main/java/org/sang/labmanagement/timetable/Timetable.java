@@ -1,11 +1,7 @@
 package org.sang.labmanagement.timetable;
 
-import com.fasterxml.jackson.annotation.JsonBackReference;
 import com.fasterxml.jackson.annotation.JsonFormat;
-import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
-import com.fasterxml.jackson.annotation.JsonManagedReference;
-import jakarta.persistence.CascadeType;
 import jakarta.persistence.ElementCollection;
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
@@ -26,7 +22,7 @@ import lombok.Setter;
 import org.sang.labmanagement.course.Course;
 import org.sang.labmanagement.enrollment.Enrollment;
 import org.sang.labmanagement.room.Room;
-import org.sang.labmanagement.timetable.LessonTime.LessonTime;
+import org.sang.labmanagement.timetable.lesson_time.LessonTime;
 import org.sang.labmanagement.user.instructor.Instructor;
 
 

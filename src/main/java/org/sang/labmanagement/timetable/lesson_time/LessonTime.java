@@ -1,11 +1,9 @@
-package org.sang.labmanagement.timetable.LessonTime;
+package org.sang.labmanagement.timetable.lesson_time;
 
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
-import jakarta.persistence.JoinColumn;
-import jakarta.persistence.ManyToOne;
 import java.time.LocalTime;
 import lombok.AllArgsConstructor;
 import lombok.Builder;

@@ -12,5 +12,7 @@ import lombok.Setter;
 public class CourseLogStatistics {
 	private Long courseId;
 	private String courseName;
+	private String NH;
+	private String TH;
 	private long logCount;
 }

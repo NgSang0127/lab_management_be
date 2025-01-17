@@ -30,10 +30,13 @@ public interface LogsRepository extends JpaRepository<Logs, Long> {
 
 
 
-	@Query("SELECT new org.sang.labmanagement.logs.dto.CourseLogStatistics(c.id, c.name, COUNT(l)) " +
+	@Query("SELECT new org.sang.labmanagement.logs.dto.CourseLogStatistics(c.id, c.name, c.NH, c.TH, COUNT(l)) " +
 			"FROM Logs l JOIN l.course c " +
 			"WHERE l.timestamp BETWEEN :startDate AND :endDate " +
-			"GROUP BY c.id, c.name ORDER BY COUNT(l) DESC")
+			"GROUP BY c.id, c.name, c.NH, c.TH " +
+			"ORDER BY COUNT(l) DESC")
 	List<CourseLogStatistics> findLogsGroupByCourse(LocalDateTime startDate, LocalDateTime endDate);
+
+
 
 }

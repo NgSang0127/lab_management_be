@@ -46,6 +46,4 @@ public class Logs {
 
 	private String userAgent;
 
-
-
 }
