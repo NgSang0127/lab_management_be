@@ -7,6 +7,7 @@ import org.sang.labmanagement.exception.OperationNotPermittedException;
 import org.sang.labmanagement.user.Role;
 import org.sang.labmanagement.user.User;
 import org.sang.labmanagement.user.UserRepository;
+import org.sang.labmanagement.user.UserSpecification;
 import org.sang.labmanagement.user.instructor.Department;
 import org.sang.labmanagement.user.instructor.Instructor;
 import org.sang.labmanagement.user.instructor.InstructorRepository;
@@ -15,6 +16,7 @@ import org.sang.labmanagement.user.student.StudentRepository;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
@@ -27,9 +29,11 @@ public class AdminService {
 	private final StudentRepository studentRepository;
 	private final InstructorRepository instructorRepository;
 
-	public PageResponse<User>findUsers(int page,int size){
+	public PageResponse<User>findUsers(int page,int size,String keyword,String role){
 		Pageable pageable= PageRequest.of(page,size);
-		Page<User>users=userRepository.findAll(pageable);
+		Specification<User> spec = UserSpecification.getUsersByKeywordAndRole(keyword, role);
+
+		Page<User> users = userRepository.findAll(spec, pageable);
 		return PageResponse.<User>builder()
 				.content(users.getContent())
 				.number(users.getNumber())

@@ -1,19 +1,10 @@
 package org.sang.labmanagement.admin;
 
-import java.time.LocalDate;
-import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.sang.labmanagement.common.PageResponse;
-import org.sang.labmanagement.user.Role;
 import org.sang.labmanagement.user.User;
 import org.sang.labmanagement.user.UserRepository;
-import org.sang.labmanagement.user.instructor.Department;
-import org.sang.labmanagement.user.instructor.Instructor;
-import org.sang.labmanagement.user.instructor.InstructorRepository;
-import org.sang.labmanagement.user.student.Student;
-import org.sang.labmanagement.user.student.StudentRepository;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -35,9 +26,11 @@ public class AdminController {
 	@GetMapping("/users")
 	public ResponseEntity<PageResponse<User>>getUsers(
 			@RequestParam(name = "page", defaultValue = "0", required = false) int page,
-			@RequestParam(name = "size", defaultValue = "10", required = false) int size
+			@RequestParam(name = "size", defaultValue = "10", required = false) int size,
+			@RequestParam(name = "keyword", required = false) String keyword,
+			@RequestParam(name = "role", required = false) String role
 	){
-		return ResponseEntity.ok(adminService.findUsers(page,size));
+		return ResponseEntity.ok(adminService.findUsers(page,size,keyword,role));
 	}
 
 	@PostMapping("/users")
