@@ -11,7 +11,7 @@ import org.sang.labmanagement.user.User;
 @NoArgsConstructor
 @AllArgsConstructor
 public class UserTotalUsageDTO {
-	private User user;
-
+	private Long userId;
+	private String username;
 	private Long totalUsageTime;
 }

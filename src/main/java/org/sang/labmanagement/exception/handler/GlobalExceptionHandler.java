@@ -4,7 +4,9 @@ import jakarta.mail.MessagingException;
 import java.time.LocalDateTime;
 import java.util.HashSet;
 import java.util.Set;
+import org.sang.labmanagement.exception.IllegalStateException;
 import org.sang.labmanagement.exception.OperationNotPermittedException;
+import org.sang.labmanagement.exception.ResourceNotFoundException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.BadCredentialsException;
@@ -132,6 +134,46 @@ public class GlobalExceptionHandler {
 				);
 
 	}
+
+	@ExceptionHandler(ResourceNotFoundException.class)
+	public ResponseEntity<ExceptionResponse> handleException(ResourceNotFoundException exp){
+		return ResponseEntity.status(HttpStatus.NOT_FOUND)
+				.body(
+						ExceptionResponse.builder()
+								.error(exp.getMessage())
+								.timestamp(LocalDateTime.now())
+								.build()
+				);
+
+	}
+
+	@ExceptionHandler(IllegalStateException.class)
+	public ResponseEntity<ExceptionResponse> handleException(IllegalStateException exp){
+		return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+				.body(
+						ExceptionResponse.builder()
+								.error(exp.getMessage())
+								.timestamp(LocalDateTime.now())
+								.build()
+				);
+
+	}
+
+
+	@ExceptionHandler(RuntimeException.class)
+	public ResponseEntity<ExceptionResponse> handleException(RuntimeException exp){
+		return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+				.body(
+						ExceptionResponse.builder()
+								.error(exp.getMessage())
+								.timestamp(LocalDateTime.now())
+								.build()
+				);
+
+	}
+
+
+
 
 
 }

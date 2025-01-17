@@ -16,7 +16,7 @@ spring:
           time_zone: Asia/Ho_Chi_Minh  #VietNam
           use_fractional_seconds: true
         # Giới thiệu các tùy chọn bổ sung cho Hibernate
-        dialect: org.hibernate.dialect.MySQL8Dialect  # Sử dụng dialect hỗ trợ MySQL 8+ với microseconds
+        dialect: org.hibernate.dialect.MySQLDialect  # Sử dụng dialect hỗ trợ MySQL 8+ với microseconds
   jackson:
     date-format: "dd/MM/yyyy"
     serialization:
@@ -49,5 +49,11 @@ application:
       reset-password-url: http://localhost:8080/api/v1/auth/reset-password
     success-url: http://localhost:5173/success?activated=true
     error-url: http://localhost:5173/error?message=
+logging:
+  level:
+    root: INFO
+    com.example: DEBUG
+  file:
+    name: logs/spring-boot-app.log
 server:
   port: 8080
