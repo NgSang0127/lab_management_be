@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Maintenance Reminder</title>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        background-color: #f4f4f4;
+        margin: 0;
+        padding: 0;
+      }
+      .email-container {
+        width: 100%;
+        max-width: 600px;
+        margin: auto;
+        background-color: #ffffff;
+        padding: 20px;
+      }
+      .header {
+        text-align: center;
+        padding-bottom: 20px;
+      }
+      .header img {
+        max-width: 150px;
+      }
+      .content {
+        line-height: 1.6;
+        color: #333333;
+      }
+      .content h2 {
+        color: #2e6da4;
+      }
+      .details {
+        margin-top: 20px;
+      }
+      .details table {
+        width: 100%;
+        border-collapse: collapse;
+      }
+      .details th, .details td {
+        text-align: left;
+        padding: 8px;
+        border-bottom: 1px solid #dddddd;
+      }
+      .footer {
+        text-align: center;
+        padding-top: 20px;
+        font-size: 12px;
+        color: #777777;
+      }
+      .button {
+        display: inline-block;
+        padding: 10px 20px;
+        margin-top: 20px;
+        background-color: #2e6da4;
+        color: #ffffff;
+        text-decoration: none;
+        border-radius: 5px;
+      }
+      @media only screen and (max-width: 600px) {
+        .email-container {
+          padding: 10px;
+        }
+        .header img {
+          max-width: 100px;
+        }
+      }
+    </style>
+</head>
+<body>
+<div class="email-container">
+    <!-- Header -->
+    <div class="header">
+        <img src="/image/logo.png" alt="Company Logo">
+    </div>
+
+    <!-- Content -->
+    <div class="content">
+        <h2>Maintenance Reminder</h2>
+        <p>Dear <strong th:text="${username}"></strong>,</p>
+        <p>This is a friendly reminder that your assigned asset is scheduled for maintenance. Please review the details below:</p>
+
+        <div class="details">
+            <table>
+                <tr>
+                    <th>Asset ID:</th>
+                    <td th:text="${assetId}"></td>
+                </tr>
+                <tr>
+                    <th>Asset Name:</th>
+                    <td th:text="${assetName}"></td>
+                </tr>
+                <tr>
+                    <th>Scheduled Date:</th>
+                    <td th:text="${scheduledDate}"></td>
+                </tr>
+                <tr>
+                    <th>Remarks:</th>
+                    <td th:text="${remarks}"></td>
+                </tr>
+            </table>
+        </div>
+
+        <p>Please ensure that the asset is available for maintenance on the scheduled date. If you have any questions or need to reschedule, feel free to contact our support team.</p>
+
+        <a href="https://yourcompany.com/support" class="button">Contact Support</a>
+    </div>
+
+    <!-- Footer -->
+    <div class="footer">
+        <p>&copy; 2024 Lab Management By NCS. All rights reserved.</p>
+        <p>Khu phố 6, P. Linh Trung, Thành phố Thủ Đức, TP.HCM | Phone: (123) 456-7890 | <a href="https://yourcompany.com/unsubscribe">Unsubscribe</a></p>
+    </div>
+</div>
+</body>
+</html>
