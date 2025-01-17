@@ -24,6 +24,13 @@
         text-align: center;
       }
 
+      .header {
+        text-align: center;
+        padding-bottom: 20px;
+      }
+      .header img {
+        max-width: 150px;
+      }
       h1 {
         color: #333333;
         font-size: 24px;
@@ -77,6 +84,10 @@
 </head>
 <body>
 <div class="container">
+    <div class="header">
+        <img src="/image/logo.png" alt="Company Logo">
+    </div>
+
     <h1>Activate Your Account</h1>
     <p class="greeting" th:text="'Hello ' + ${username} + ','"></p>
     <p>Thank you for signing up! Use the code below to activate your account:</p>

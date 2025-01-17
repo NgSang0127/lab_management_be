@@ -86,5 +86,28 @@ public class EmailService {
 		}
 		return codeBuilder.toString();
 	}
+
+
+	@Async
+	public void sendMaintenanceReminderEmail(String to, String username, String subject,
+			Long assetId, String assetName,
+			String scheduledDate, String remarks) throws MessagingException {
+		Context context = new Context();
+		context.setVariable("username", username);
+		context.setVariable("assetId", assetId);
+		context.setVariable("assetName", assetName);
+		context.setVariable("scheduledDate", scheduledDate);
+		context.setVariable("remarks", remarks);
+
+		String htmlContent = templateEngine.process("maintenance-reminder", context);
+
+		MimeMessage message = mailSender.createMimeMessage();
+		MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
+		helper.setTo(to);
+		helper.setSubject(subject);
+		helper.setText(htmlContent, true);
+
+		mailSender.send(message);
+	}
 }
 
