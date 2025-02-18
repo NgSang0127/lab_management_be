@@ -5,7 +5,7 @@
     <meta name="viewport"
           content="width=device-width, initial-scale=1.0">
     <meta http-equiv="X-UA-Compatible" content="ie=edge">
-    <title>Account Activation</title>
+    <title>OTP for Two-Factor Authentication</title>
     <style>
       body {
         font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
@@ -39,40 +39,24 @@
 
       p {
         color: #666666;
-        font-size: 16px;
+        font-size: 20px;
         line-height: 1.5;
         margin-bottom: 20px;
       }
 
-      .activation-code {
+      .otp-code {
         font-size: 48px;
         color: #333333;
         font-weight: bold;
         letter-spacing: 2px;
         margin: 20px 0;
-      }
-
-      .activation-link {
-        margin-top: 30px;
-      }
-
-      .activation-link a {
         display: inline-block;
-        padding: 14px 28px;
+        padding: 1px 20px;
         background-color: #007bff;
-        color: #ffffff;
-        font-size: 16px;
-        font-weight: bold;
         text-decoration: none;
         border-radius: 6px;
         box-shadow: 0 4px 10px rgba(0, 123, 255, 0.4);
         transition: background-color 0.3s ease, box-shadow 0.3s ease;
-      }
-
-      .activation-link a:hover {
-        cursor: pointer;
-        background-color: #0056b3;
-        box-shadow: 0 6px 15px rgba(0, 123, 255, 0.5);
       }
 
       .footer {
@@ -85,18 +69,17 @@
 <body>
 <div class="container">
     <div class="header">
-        <img th:src="@{/image/logo.png}" alt="Lab Management HCMIU">
+        <img src="/static/image/logo.png" alt="Lab Management HCMIU">
     </div>
 
-    <h1>Activate Your Account</h1>
+    <h1>Your OTP for Two-Factor Authentication</h1>
     <p class="greeting" th:text="'Hello ' + ${username} + ','"></p>
-    <p>Thank you for signing up! Use the code below to activate your account:</p>
-    <div class="activation-code" th:text="${activation_code}"></div>
-    <div class="activation-link">
-        <a th:href="@{${confirmationUrl}(code=${activation_code})}">Activate your account</a>
+    <p>Use the OTP below to complete your two-factor authentication:</p>
+    <div class="otp-code">
+        <p th:text="${activation_code}">OTP Code: [Your OTP Code]</p>
     </div>
     <div class="footer">
-        <p>If you didn’t request this email, please ignore it.</p>
+        <p>If you didn’t request this, please ignore this email.</p>
     </div>
 </div>
 </body>

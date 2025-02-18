@@ -17,6 +17,8 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
@@ -29,9 +31,10 @@ public class AdminService {
 	private final StudentRepository studentRepository;
 	private final InstructorRepository instructorRepository;
 
-	public PageResponse<User>findUsers(int page,int size,String keyword,String role){
+	public PageResponse<User>findUsers(int page,int size,String keyword,String role, Authentication connectedUser){
+		var user=(User)connectedUser.getPrincipal();
 		Pageable pageable= PageRequest.of(page,size);
-		Specification<User> spec = UserSpecification.getUsersByKeywordAndRole(keyword, role);
+		Specification<User> spec = UserSpecification.getUsersByKeywordAndRole(keyword, role,user.getUsername());
 
 		Page<User> users = userRepository.findAll(spec, pageable);
 		return PageResponse.<User>builder()
@@ -45,7 +48,7 @@ public class AdminService {
 				.build();
 	}
 
-	public String createUser(CreateUserByAdminRequest request) {
+	public User createUser(CreateUserByAdminRequest request) {
 		User user = User.builder()
 				.firstName(request.getFirstName())
 				.lastName(request.getLastName())
@@ -73,7 +76,7 @@ public class AdminService {
 					.build();
 			instructorRepository.save(instructor);
 		}
-		return "Create user successful";
+		return savedUser;
 	}
 
 	public User updateUser(Long id, CreateUserByAdminRequest request) {
@@ -86,7 +89,7 @@ public class AdminService {
 		user.setEmail(request.getEmail());
 		user.setRole(Role.valueOf(request.getRole().toUpperCase()));
 		user.setPhoneNumber(request.getPhoneNumber());
-		user.setEnabled(request.isEnable());
+		user.setEnabled(request.isEnabled());
 		user.setAccountLocked(request.isAccountLocked());
 
 		if (Role.valueOf(request.getRole().toUpperCase()) != user.getRole()) {
@@ -112,16 +115,52 @@ public class AdminService {
 		return userRepository.save(user);
 	}
 
-	public String deleteUser(Long id){
-		User user=userRepository.findById(id).orElseThrow(
-				()->new OperationNotPermittedException("User not found")
-		);
-		if (user.getRole() == Role.STUDENT && user.getStudent() != null) {
-			studentRepository.delete(user.getStudent());
-		} else if (user.getRole() == Role.TEACHER && user.getInstructor() != null) {
-			instructorRepository.delete(user.getInstructor());
+
+	public boolean canModifyUser(Role currentRole, Role targetRole) {
+		// Owner hoặc Co-Owner có thể chỉnh sửa/xóa Admin, Teacher, Student nhưng không chỉnh sửa lẫn nhau
+		if ((currentRole == Role.OWNER || currentRole == Role.CO_OWNER) && targetRole.ordinal() < currentRole.ordinal()) {
+			return true;
 		}
-		userRepository.delete(user);
-		return "Delete user successful";
+
+		// Admin chỉ có thể chỉnh sửa/xóa Teacher hoặc Student
+		if (currentRole == Role.ADMIN && (targetRole == Role.TEACHER || targetRole == Role.STUDENT)) {
+			return true;
+		}
+
+		// Nếu không thuộc các điều kiện trên, từ chối quyền
+		return false;
 	}
+
+
+	public User deleteUser(Long id, Authentication connectedUser) {
+		User userToDelete = userRepository.findById(id).orElseThrow(
+				() -> new OperationNotPermittedException("User not found")
+		);
+
+		var currentUserDetails = (User) connectedUser.getPrincipal();
+		User currentUser = userRepository.findByUsername(currentUserDetails.getUsername()).orElseThrow(
+				()->new UsernameNotFoundException("Username not found")
+		);
+
+		// Không cho phép xóa ADMIN hoặc OWNER
+		if (userToDelete.getRole() == Role.ADMIN || userToDelete.getRole() == Role.OWNER) {
+			throw new OperationNotPermittedException("You are not allowed to delete this user!");
+		}
+
+		// Không cho phép tự xóa chính mình
+		if (userToDelete.getId().equals(currentUser.getId())) {
+			throw new OperationNotPermittedException("You cannot delete yourself!");
+		}
+
+		// Nếu user là STUDENT hoặc TEACHER, xóa bình thường
+		if (userToDelete.getRole() == Role.STUDENT && userToDelete.getStudent() != null) {
+			studentRepository.delete(userToDelete.getStudent());
+		} else if (userToDelete.getRole() == Role.TEACHER && userToDelete.getInstructor() != null) {
+			instructorRepository.delete(userToDelete.getInstructor());
+		}
+
+		userRepository.delete(userToDelete);
+		return userToDelete;
+	}
+
 }

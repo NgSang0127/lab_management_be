@@ -14,6 +14,7 @@ import org.sang.labmanagement.auth.request.ChangePasswordRequest;
 import org.sang.labmanagement.auth.request.ForgotPasswordRequest;
 import org.sang.labmanagement.auth.request.ResetPasswordRequest;
 import org.sang.labmanagement.auth.request.UpdateInformationUser;
+import org.sang.labmanagement.auth.request.VerificationRequest;
 import org.sang.labmanagement.auth.response.AuthenticationResponse;
 import org.sang.labmanagement.auth.request.LoginRequest;
 import org.sang.labmanagement.auth.request.RegistrationRequest;
@@ -25,6 +26,7 @@ import org.sang.labmanagement.security.jwt.JwtService;
 import org.sang.labmanagement.security.token.Token;
 import org.sang.labmanagement.security.token.TokenRepository;
 import org.sang.labmanagement.security.token.TokenType;
+import org.sang.labmanagement.tfa.TwoFactorAuthenticationService;
 import org.sang.labmanagement.user.Role;
 import org.sang.labmanagement.user.User;
 import org.sang.labmanagement.user.UserRepository;
@@ -57,7 +59,7 @@ public class AuthenticationServiceImplement implements AuthenticationService {
 	private final EmailVerificationRepository emailCodeRepository;
 	private final AuthenticationManager authenticationManager;
 	private final JwtService jwtService;
-
+	private final TwoFactorAuthenticationService twoFactorAuthenticationService;
 
 	@Override
 	public AuthenticationResponse register(RegistrationRequest request) throws MessagingException {
@@ -72,9 +74,12 @@ public class AuthenticationServiceImplement implements AuthenticationService {
 				.phoneNumber(request.getPhoneNumber())
 				.password(passwordEncoder.encode(request.getPassword()))
 				.role(Role.STUDENT)
+				.twoFactorEnabled(false)
+				.secret(null)
 				.accountLocked(false)
 				.enabled(false)
 				.build();
+
 		userRepository.save(savedUser);
 		sendValidationEmail(savedUser);
 		return AuthenticationResponse.builder()
@@ -91,8 +96,24 @@ public class AuthenticationServiceImplement implements AuthenticationService {
 						request.getPassword()
 				)
 		);
-		var claims = new HashMap<String, Object>();
 		var user = ((User) auth.getPrincipal());
+		//enable tfa
+		if (user.isTwoFactorEnabled()) {
+			String secret = user.getSecret();
+			if (secret == null) {
+				secret = twoFactorAuthenticationService.generateNewSecret();
+				user.setSecret(secret);
+				userRepository.save(user);
+			}
+
+			// Trả về thông tin mã QR URI và yêu cầu người dùng nhập OTP
+			return AuthenticationResponse.builder()
+					.message("Please enter the OTP code after scanning the QR code.")
+					.tfaEnabled(true)
+					.build();
+		}
+
+		var claims = new HashMap<String, Object>();
 		claims.put("fullName", user.getFullName());//more add field into jwt
 		var jwtToken = jwtService.generateToken(claims, user);
 		var refreshToken = jwtService.generateRefreshToken(user);
@@ -101,6 +122,7 @@ public class AuthenticationServiceImplement implements AuthenticationService {
 
 		return AuthenticationResponse.builder()
 				.accessToken(jwtToken)
+				.tfaEnabled(false)
 				.refreshToken(refreshToken)
 				.build();
 	}
@@ -134,21 +156,27 @@ public class AuthenticationServiceImplement implements AuthenticationService {
 	}
 
 	@Override
+	@Transactional
 	public void activateAccount(String code) throws MessagingException {
-		// Find the email verification code
-		EmailVerificationCode savedEmailVerificationCode =
-				emailCodeRepository.findByCode(code)
-						.orElseThrow(() -> new RuntimeException("The code is not correct or has expired"));
+		// Tìm mã xác thực trong DB
+		EmailVerificationCode savedEmailVerificationCode = emailCodeRepository.findByCode(code)
+				.orElseThrow(() -> new RuntimeException("The code is incorrect or has expired"));
 
-		// Check if the code has expired
-		if (LocalDateTime.now().isAfter(savedEmailVerificationCode.getExpiresAt())) {
-			// Resend the activation email
+		// Kiểm tra xem mã đã được sử dụng chưa
+		if (savedEmailVerificationCode.isValidated()) {
+			throw new RuntimeException("The activation code has already been used.");
+		}
+
+		// Kiểm tra xem mã đã hết hạn chưa
+		if (savedEmailVerificationCode.isExpired()) {
+			// Xóa mã cũ và gửi mã mới
+			emailCodeRepository.delete(savedEmailVerificationCode);
 			sendValidationEmail(savedEmailVerificationCode.getUser());
 			throw new RuntimeException("The activation code has expired. A new code has been sent to your email.");
 		}
 
-		// Activate the user's account
-		var user = userRepository.findById(savedEmailVerificationCode.getUser().getId())
+		// Kích hoạt tài khoản người dùng
+		User user = userRepository.findById(savedEmailVerificationCode.getUser().getId())
 				.orElseThrow(() -> new UsernameNotFoundException("User not found"));
 
 		if (user.isEnabled()) {
@@ -158,8 +186,8 @@ public class AuthenticationServiceImplement implements AuthenticationService {
 		user.setEnabled(true);
 		userRepository.save(user);
 
-		// Mark the code as validated
-		savedEmailVerificationCode.setValidatedAt(LocalDateTime.now());
+		// Đánh dấu mã là đã sử dụng
+		savedEmailVerificationCode.validate();
 		emailCodeRepository.save(savedEmailVerificationCode);
 	}
 
@@ -276,11 +304,10 @@ public class AuthenticationServiceImplement implements AuthenticationService {
 		String resetPasswordCode = emailService.generateAndSaveActivationCode(user);
 
 		try {
-			emailService.sendEmail(
+			emailService.sendOTPToEmail(
 					user.getEmail(),
 					user.getFullName(),
 					EmailTemplateName.RESET_PASSWORD,
-					resetPasswordUrl,
 					resetPasswordCode,
 					"Reset Your Password"
 			);
@@ -294,9 +321,20 @@ public class AuthenticationServiceImplement implements AuthenticationService {
 	@Override
 	public String validateResetCode(ResetPasswordRequest request) throws MessagingException {
 		EmailVerificationCode resetCode=emailCodeRepository.findByCode(request.getCode()).orElse(null);
-		if(resetCode == null || resetCode.isExpired()){
-			return  "Invalid or expired reset code";
+		if (resetCode == null) {
+			return "Reset code invalid";
 		}
+
+		if (resetCode.isExpired()) {
+			return "Expired Reset Code";
+		}
+
+		if (resetCode.isValidated()) {
+			return "Reset Code has already been used";
+		}
+		resetCode.validate();
+		emailCodeRepository.save(resetCode);
+
 		return "Reset code is valid";
 	}
 
@@ -335,4 +373,118 @@ public class AuthenticationServiceImplement implements AuthenticationService {
 		return false;
 
 	}
+
+	@Override
+	public AuthenticationResponse toggleTwoFactorAuthentication(Authentication connectedUser) {
+		User user=(User)connectedUser.getPrincipal();
+			if (user.isTwoFactorEnabled()) {
+
+				user.setTwoFactorEnabled(false);
+				user.setSecret(null);
+				userRepository.save(user);
+				return AuthenticationResponse.builder()
+						.message("Two-Factor Authentication disabled")
+						.build();
+			} else {
+
+				String secret = twoFactorAuthenticationService.generateNewSecret();
+				user.setTwoFactorEnabled(true);
+				user.setSecret(secret);
+				userRepository.save(user);
+				String qrCodeUri = twoFactorAuthenticationService.generateQrCodeImageUri(secret);
+				return AuthenticationResponse.builder()
+						.message("Two-Factor Authentication enabled")
+						.secretImageUri(qrCodeUri)
+						.build();
+			}
+	}
+
+	@Override
+	@Transactional
+	public AuthenticationResponse verifyOtpQR(String otpCode, String username) {
+		User user=userRepository.findByUsername(username)
+				.orElseThrow(()-> new UsernameNotFoundException("Username not found with "+username));
+		if (user != null && user.isTwoFactorEnabled()) {
+			boolean isValidOtp = twoFactorAuthenticationService.isOtpValid(user.getSecret(), otpCode);
+			if (isValidOtp) {
+				// Nếu OTP hợp lệ, tạo và trả về token
+				var claims = new HashMap<String, Object>();
+				claims.put("fullName", user.getFullName());
+				var jwtToken = jwtService.generateToken(claims, user);
+				var refreshToken = jwtService.generateRefreshToken(user);
+
+				revokeAllUserTokens(user);
+				saveUserToken(user, jwtToken);
+
+				return AuthenticationResponse.builder()
+						.accessToken(jwtToken)
+						.tfaEnabled(user.isTwoFactorEnabled())
+						.refreshToken(refreshToken)
+						.build();
+			} else {
+				throw new RuntimeException("Invalid OTP code.");
+			}
+		}
+		throw new IllegalStateException("User not found or 2FA not enabled.");
+	}
+
+	@Override
+	@Transactional
+	public String verifyOtpByMail(String username) {
+		User user=userRepository.findByUsername(username)
+				.orElseThrow(()-> new UsernameNotFoundException("Username not found with "+username));
+		String otpCode = emailService.generateAndSaveActivationCode(user);
+
+		try {
+			emailService.sendOTPToEmail(
+					user.getEmail(),
+					user.getFullName(),
+					EmailTemplateName.TWO_FACTOR_AUTHENTICATION,
+					otpCode,
+					"TWO FACTOR AUTHENTICATION"
+			);
+		} catch (MessagingException e) {
+			return "Failed to send email. Please try again later.";
+		}
+
+		return "A two factor authentication code has been sent to your email!";
+	}
+
+	@Override
+	@Transactional
+	public AuthenticationResponse verifyTFAEmail(VerificationRequest request) {
+		User user = userRepository.findByUsername(request.getUsername())
+				.orElseThrow(() -> new UsernameNotFoundException("Username not found with " + request.getUsername()));
+
+		EmailVerificationCode otp = emailCodeRepository.findByCode(request.getCode()).orElse(null);
+		if (otp == null) {
+			throw new IllegalArgumentException("Invalid OTP TFA");
+		}
+
+		if (otp.isExpired()) {
+			throw new IllegalArgumentException("Expired OTP TFA");
+		}
+
+		if (otp.isValidated()) {
+			throw new IllegalArgumentException("OTP TFA has already been used");
+		}
+
+		otp.validate();
+		emailCodeRepository.save(otp);
+
+		var claims = new HashMap<String, Object>();
+		claims.put("fullName", user.getFullName());
+		var jwtToken = jwtService.generateToken(claims, user);
+		var refreshToken = jwtService.generateRefreshToken(user);
+
+		revokeAllUserTokens(user);
+		saveUserToken(user, jwtToken);
+
+		return AuthenticationResponse.builder()
+				.accessToken(jwtToken)
+				.tfaEnabled(user.isTwoFactorEnabled())
+				.refreshToken(refreshToken)
+				.build();
+	}
+
 }

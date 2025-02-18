@@ -1,10 +1,12 @@
 package org.sang.labmanagement.auth;
 
 import jakarta.mail.MessagingException;
+import java.util.Map;
 import java.util.Optional;
 import lombok.RequiredArgsConstructor;
 import org.sang.labmanagement.auth.request.ChangePasswordRequest;
 import org.sang.labmanagement.auth.request.UpdateInformationUser;
+import org.sang.labmanagement.tfa.TwoFactorAuthenticationService;
 import org.sang.labmanagement.user.User;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
@@ -20,6 +22,7 @@ public class UserController {
 	private static final String PASSWORD_CHANGE_FAILURE = "Current password wrong";
 
 	private final AuthenticationService authService;
+	private final TwoFactorAuthenticationService twoFactorAuthenticationService;
 
 	@GetMapping("/profile")
 	public ResponseEntity<User> findUserByJwt(Authentication authenticatedUser) {
@@ -58,4 +61,24 @@ public class UserController {
 			return ResponseEntity.badRequest().body("Update information failed");
 		}
 	}
+
+
+	@PostMapping("/toggle-tfa")
+	public ResponseEntity<?>toggleTwoFactorAuthentication(
+			Authentication connectedUser
+	){
+		return ResponseEntity.ok(authService.toggleTwoFactorAuthentication(connectedUser));
+	}
+
+	@GetMapping("/tfa-qr")
+	public ResponseEntity<?> getTfaQrCode(Authentication connectedUser) {
+		User user = (User) connectedUser.getPrincipal();
+		if (!user.isTwoFactorEnabled() || user.getSecret() == null) {
+			return ResponseEntity.badRequest().body(Map.of("message", "2FA is not enabled"));
+		}
+
+		String qrCodeUri = twoFactorAuthenticationService.generateQrCodeImageUri(user.getSecret());
+		return ResponseEntity.ok(Map.of("secretImageUri", qrCodeUri));
+	}
+
 }

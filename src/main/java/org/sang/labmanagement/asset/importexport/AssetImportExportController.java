@@ -21,7 +21,7 @@ public class AssetImportExportController {
 
 	private final AssetImportExportService assetImportExportService;
 
-	@PreAuthorize("hasRole('ADMIN')")
+
 	@PostMapping("/import/csv")
 	public ResponseEntity<?> importAssetsFromCSV(@RequestParam("file") MultipartFile file) {
 		try {
@@ -32,7 +32,7 @@ public class AssetImportExportController {
 		}
 	}
 
-	@PreAuthorize("hasRole('ADMIN')")
+
 	@PostMapping("/import/excel")
 	public ResponseEntity<?> importAssetsFromExcel(@RequestParam("file") MultipartFile file) {
 		try {
@@ -43,7 +43,7 @@ public class AssetImportExportController {
 		}
 	}
 
-	@PreAuthorize("hasRole('ADMIN')")
+
 	@GetMapping("/export/csv")
 	public ResponseEntity<InputStreamResource> exportAssetsToCSV() {
 		try {
@@ -68,7 +68,7 @@ public class AssetImportExportController {
 		}
 	}
 
-	@PreAuthorize("hasRole('ADMIN')")
+
 	@GetMapping("/export/excel")
 	public ResponseEntity<InputStreamResource> exportAssetsToExcel() {
 		try {

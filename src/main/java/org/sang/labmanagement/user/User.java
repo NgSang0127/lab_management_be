@@ -69,6 +69,11 @@ public class User implements UserDetails , Principal {
 	@Enumerated(EnumType.STRING)
 	private Role role;
 
+	@Column(nullable = false)
+	private boolean twoFactorEnabled;
+
+	private String secret;
+
 	private boolean accountLocked;
 
 	private boolean enabled;

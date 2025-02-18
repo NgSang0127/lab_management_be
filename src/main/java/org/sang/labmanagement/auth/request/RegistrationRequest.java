@@ -40,4 +40,5 @@ public class RegistrationRequest {
 	@Size(min = 8,message = "Password should contains 8 characters at least")
 	private String password;
 
+
 }

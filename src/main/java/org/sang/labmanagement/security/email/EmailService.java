@@ -99,7 +99,7 @@ public class EmailService {
 		context.setVariable("scheduledDate", scheduledDate);
 		context.setVariable("remarks", remarks);
 
-		String htmlContent = templateEngine.process("maintenance-reminder", context);
+		String htmlContent = templateEngine.process("maintenance_scheduler", context);
 
 		MimeMessage message = mailSender.createMimeMessage();
 		MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
@@ -109,5 +109,39 @@ public class EmailService {
 
 		mailSender.send(message);
 	}
+
+	@Async
+	public void sendOTPToEmail(
+			String to,
+			String username,
+			EmailTemplateName emailTemplate,
+			String activationCode,
+			String subject)
+			throws MessagingException {
+		String templateName=emailTemplate.name();
+		MimeMessage mimeMessage= mailSender.createMimeMessage();
+		MimeMessageHelper helper=new MimeMessageHelper(
+				mimeMessage,
+				MimeMessageHelper.MULTIPART_MODE_MIXED,
+				StandardCharsets.UTF_8.name()
+		);
+		Map<String,Object>properties= new HashMap<String,Object>();
+		properties.put("username",username);
+		properties.put("activation_code",activationCode);
+
+		Context context=new Context();
+		context.setVariables(properties);
+
+		helper.setFrom("contact@admin.com");
+		helper.setTo(to);
+		helper.setSubject(subject);
+
+		String template=templateEngine.process(templateName,context);
+		helper.setText(template,true);
+
+		mailSender.send(mimeMessage);
+	}
+
+
 }
 

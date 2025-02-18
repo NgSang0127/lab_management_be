@@ -2,9 +2,13 @@ package org.sang.labmanagement.admin;
 
 import lombok.RequiredArgsConstructor;
 import org.sang.labmanagement.common.PageResponse;
+import org.sang.labmanagement.exception.OperationNotPermittedException;
 import org.sang.labmanagement.user.User;
 import org.sang.labmanagement.user.UserRepository;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -28,29 +32,39 @@ public class AdminController {
 			@RequestParam(name = "page", defaultValue = "0", required = false) int page,
 			@RequestParam(name = "size", defaultValue = "10", required = false) int size,
 			@RequestParam(name = "keyword", required = false) String keyword,
-			@RequestParam(name = "role", required = false) String role
+			@RequestParam(name = "role", required = false) String role,
+			Authentication connectedUser
 	){
-		return ResponseEntity.ok(adminService.findUsers(page,size,keyword,role));
+		return ResponseEntity.ok(adminService.findUsers(page,size,keyword,role,connectedUser));
 	}
 
 	@PostMapping("/users")
-	public ResponseEntity<String>createUser(
+	public ResponseEntity<?>createUser(
 			@RequestBody CreateUserByAdminRequest request
 	){
 		return ResponseEntity.ok().body(adminService.createUser(request));
 	}
 
-	@PutMapping("/{id}")
-	public ResponseEntity<User> updateUser(
+	@PutMapping("/users/{id}")
+	public ResponseEntity<?> updateUser(
 			@PathVariable Long id,
-			@RequestBody CreateUserByAdminRequest request
-	){
-		return ResponseEntity.ok(adminService.updateUser(id,request));
+			@RequestBody CreateUserByAdminRequest request,
+			@AuthenticationPrincipal User currentUser // Lấy user đang thực hiện request từ Security Context
+	) {
+		User targetUser = userRepository.findById(id)
+				.orElseThrow(() -> new OperationNotPermittedException("User not found"));
+
+		if (!adminService.canModifyUser(currentUser.getRole(), targetUser.getRole())) {
+			return ResponseEntity.status(HttpStatus.FORBIDDEN).body("Bạn không có quyền chỉnh sửa user này.");
+		}
+
+		return ResponseEntity.ok(adminService.updateUser(id, request));
 	}
 
-	@DeleteMapping("/{id}")
-	public ResponseEntity<String> deleteUser(@PathVariable Long id) {
-		return ResponseEntity.ok().body(adminService.deleteUser(id));
+
+	@DeleteMapping("/users/{id}")
+	public ResponseEntity<?> deleteUser(@PathVariable Long id,Authentication connectedUser) {
+		return ResponseEntity.ok().body(adminService.deleteUser(id,connectedUser));
 	}
 
 }

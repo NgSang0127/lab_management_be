@@ -20,7 +20,7 @@ import org.springframework.web.bind.annotation.RestController;
 public class MaintenanceController {
 	private final MaintenanceService maintenanceService;
 
-	@PreAuthorize("hasRole('ADMIN')")
+
 	@GetMapping
 	public ResponseEntity<PageResponse<MaintenanceDTO>> getAllMaintenances(
 			@RequestParam(name = "page", defaultValue = "0", required = false) int page,
@@ -31,28 +31,26 @@ public class MaintenanceController {
 		return ResponseEntity.ok(maintenanceService.getAllMaintenances(page, size,keyword,status));
 	}
 
-	@PreAuthorize("hasRole('ADMIN')")
 	@GetMapping("/{id}")
 	public ResponseEntity<MaintenanceDTO> getMaintenanceById(@PathVariable Long id) {
 		MaintenanceDTO maintenanceDTO = maintenanceService.getMaintenanceById(id);
 		return ResponseEntity.ok(maintenanceDTO);
 	}
 
-	@PreAuthorize("hasRole('ADMIN')")
 	@PostMapping
 	public ResponseEntity<MaintenanceDTO> createMaintenance(@RequestBody MaintenanceDTO maintenanceDTO) {
 		MaintenanceDTO createdMaintenance = maintenanceService.createMaintenance(maintenanceDTO);
 		return ResponseEntity.ok(createdMaintenance);
 	}
 
-	@PreAuthorize("hasRole('ADMIN')")
+
 	@PutMapping("/{id}")
 	public ResponseEntity<MaintenanceDTO> updateMaintenance(@PathVariable Long id, @RequestBody MaintenanceDTO maintenanceDTO) {
 		MaintenanceDTO updatedMaintenance = maintenanceService.updateMaintenance(id, maintenanceDTO);
 		return ResponseEntity.ok(updatedMaintenance);
 	}
 
-	@PreAuthorize("hasRole('ADMIN')")
+
 	@DeleteMapping("/{id}")
 	public ResponseEntity<?> deleteMaintenance(@PathVariable Long id) {
 		maintenanceService.deleteMaintenance(id);

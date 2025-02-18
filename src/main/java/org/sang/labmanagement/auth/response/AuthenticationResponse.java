@@ -23,4 +23,8 @@ public class AuthenticationResponse {
 
 	@JsonProperty("refresh_token")
 	private String refreshToken;
+
+	private boolean tfaEnabled;
+
+	private String secretImageUri;
 }

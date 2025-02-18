@@ -10,6 +10,7 @@ import lombok.Setter;
 @NoArgsConstructor
 @AllArgsConstructor
 public class CreateUserByAdminRequest {
+
 	private String firstName;
 
 	private String lastName;
@@ -22,7 +23,7 @@ public class CreateUserByAdminRequest {
 
 	private String phoneNumber;
 
-	private boolean enable;
+	private boolean enabled;
 
 	private boolean accountLocked;
 

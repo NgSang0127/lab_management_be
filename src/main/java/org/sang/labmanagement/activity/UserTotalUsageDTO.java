@@ -14,4 +14,5 @@ public class UserTotalUsageDTO {
 	private Long userId;
 	private String username;
 	private Long totalUsageTime;
+
 }

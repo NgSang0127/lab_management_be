@@ -15,7 +15,7 @@ import org.springframework.web.bind.annotation.RestController;
 public class AssetReportController {
 	private final AssetReportService assetReportService;
 
-	@PreAuthorize("hasRole('ADMIN')")
+
 	@GetMapping("/assets/count-by-status")
 	public ResponseEntity<Map<AssetStatus, Long>> getAssetCountByStatus() {
 		Map<AssetStatus, Long> report = assetReportService.getAssetCountByStatus();

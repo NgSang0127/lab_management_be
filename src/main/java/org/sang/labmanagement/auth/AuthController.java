@@ -6,16 +6,19 @@ import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
 import java.io.IOException;
 import java.net.URLEncoder;
+import java.util.Map;
 import lombok.RequiredArgsConstructor;
 import org.sang.labmanagement.auth.request.ForgotPasswordRequest;
 import org.sang.labmanagement.auth.request.LoginRequest;
 import org.sang.labmanagement.auth.request.RegistrationRequest;
 import org.sang.labmanagement.auth.request.ResetPasswordRequest;
+import org.sang.labmanagement.auth.request.VerificationRequest;
 import org.sang.labmanagement.auth.response.AuthenticationResponse;
 import org.sang.labmanagement.user.UserDetailsServiceImplement;
 import org.sang.labmanagement.user.UserRepository;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -92,7 +95,6 @@ public class AuthController {
 			String result = authService.validateResetCode(request);
 			return ResponseEntity.ok(result);
 		} catch (Exception e) {
-			// Trả về BadRequest nếu có lỗi trong quá trình xử lý
 			return ResponseEntity.badRequest().body(e.getMessage());
 		}
 	}
@@ -107,6 +109,30 @@ public class AuthController {
 			return ResponseEntity.badRequest().body(e.getMessage());
 		}
 	}
+
+	@PostMapping("/verify-qr")
+	public ResponseEntity<?>verifyCode(
+			@RequestBody VerificationRequest request
+	){
+		return ResponseEntity.ok(authService.verifyOtpQR(request.getCode(),request.getUsername()));
+	}
+
+
+	@PostMapping("/email-otp")
+	public ResponseEntity<?> sendTFAEmail(@RequestBody Map<String, String> request) throws MessagingException {
+		String username = request.get("username");
+		try {
+			String result = authService.verifyOtpByMail(username);
+			return ResponseEntity.ok(result);
+		} catch (Exception e) {
+			return ResponseEntity.badRequest().body(e.getMessage());
+		}
+	}
+
+	@PostMapping("/verify-otp")
+	public ResponseEntity<AuthenticationResponse> verifyTFAEmail(@RequestBody VerificationRequest request) {
+			return ResponseEntity.ok(authService.verifyTFAEmail(request));
+		}
 
 
 

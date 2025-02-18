@@ -39,7 +39,7 @@ public class SecurityConfig {
 				.authorizeHttpRequests(authorize -> authorize
 						.requestMatchers("/api/v1/auth/**").permitAll()
 //						.requestMatchers("/ws-notifications/**").permitAll()
-						.requestMatchers("/api/v1/admin/**").hasRole("ADMIN")
+						.requestMatchers("/api/v1/admin/**").hasAnyRole("ADMIN","OWNER","CO_OWNER")
 						.requestMatchers("/teacher/**").hasRole("TEACHER")
 						.requestMatchers("/student/**").hasRole("STUDENT")
 						.requestMatchers("/api/v1/**").authenticated()

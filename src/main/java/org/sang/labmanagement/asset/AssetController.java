@@ -24,7 +24,7 @@ public class AssetController {
 
 	private final AssetService assetService;
 
-	@PreAuthorize("hasRole('ADMIN')")
+
 	@GetMapping
 	public ResponseEntity<PageResponse<AssetDTO>> getAllAssets(
 			@RequestParam(name = "page", defaultValue = "0", required = false) int page,
@@ -35,28 +35,27 @@ public class AssetController {
 		return ResponseEntity.ok(assetService.getAllAssets(page, size,keyword,status));
 	}
 
-	@PreAuthorize("hasRole('ADMIN')")
+
 	@GetMapping("/{id}")
 	public ResponseEntity<AssetDTO> getAssetById(@PathVariable Long id) {
 		AssetDTO assetDTO = assetService.getAssetById(id);
 		return ResponseEntity.ok(assetDTO);
 	}
 
-	@PreAuthorize("hasRole('ADMIN')")
+
 	@PostMapping
 	public ResponseEntity<AssetDTO> createAsset(@RequestBody @Valid AssetDTO assetDTO) {
 		AssetDTO createdAsset = assetService.createAsset(assetDTO);
 		return ResponseEntity.ok(createdAsset);
 	}
 
-	@PreAuthorize("hasRole('ADMIN')")
+
 	@PutMapping("/{id}")
 	public ResponseEntity<AssetDTO> updateAsset(@PathVariable Long id, @RequestBody AssetDTO assetDTO) {
 		AssetDTO updatedAsset = assetService.updateAsset(id, assetDTO);
 		return ResponseEntity.ok(updatedAsset);
 	}
 
-	@PreAuthorize("hasRole('ADMIN')")
 	@DeleteMapping("/{id}")
 	public ResponseEntity<?> deleteAsset(@PathVariable Long id) {
 		assetService.deleteAsset(id);
@@ -64,7 +63,7 @@ public class AssetController {
 	}
 
 	// Endpoint để gán tài sản cho người dùng
-	@PreAuthorize("hasRole('ADMIN')")
+
 	@PostMapping("/{assetId}/assign/{userId}")
 	public ResponseEntity<AssetDTO> assignAssetToUser(@PathVariable Long assetId, @PathVariable Long userId) {
 		AssetDTO assignedAsset = assetService.assignAssetToUser(assetId, userId);
@@ -72,7 +71,7 @@ public class AssetController {
 	}
 
 	// Endpoint để bỏ gán tài sản
-	@PreAuthorize("hasRole('ADMIN')")
+
 	@PostMapping("/{assetId}/unassign")
 	public ResponseEntity<AssetDTO> unassignAsset(@PathVariable Long assetId) {
 		AssetDTO unassignedAsset = assetService.unassignAsset(assetId);
@@ -80,7 +79,6 @@ public class AssetController {
 	}
 
 	// Endpoint để lấy tài sản theo người dùng
-	@PreAuthorize("hasRole('ADMIN')")
 	@GetMapping("/user/{userId}")
 	public ResponseEntity<PageResponse<AssetDTOByUser>> getAssetsByUserId(
 			@PathVariable Long userId,
@@ -91,7 +89,7 @@ public class AssetController {
 		return ResponseEntity.ok(assetService.getAssetsByUserId(userId, page, size));
 	}
 
-	@PreAuthorize("hasRole('ADMIN')")
+
 	@GetMapping("/{assetId}/history")
 	public ResponseEntity<PageResponse<AssetHistoryDTO>> getAssetHistory(
 			@PathVariable Long assetId,
