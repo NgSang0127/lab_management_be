@@ -1,3 +1,7 @@
+# ERD
+![LabManagement](./image/ERD.png)
+# Architecture
+![LabManagement](./image/Architecture.png)
 # admin mới có quyền tạo tài khoản
 # một khóa học có nhiều lịch học
 # có nhiều giảng viên có thể cùng phụ trách 1 khóa học
