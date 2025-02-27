@@ -9,6 +9,7 @@ import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -16,6 +17,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import org.apache.poi.ss.usermodel.Cell;
@@ -44,8 +47,10 @@ import org.sang.labmanagement.user.UserRepository;
 import org.sang.labmanagement.user.instructor.Department;
 import org.sang.labmanagement.user.instructor.Instructor;
 import org.sang.labmanagement.user.instructor.InstructorRepository;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
 @Service
@@ -97,22 +102,30 @@ public class TimetableServiceImplement implements TimetableService {
 	}
 
 	@Override
-	public Map<String, String> getFirstAndLastWeek() {
-		List<Timetable> allTimetables = timetableRepository.findAll(); // Lấy tất cả thời khóa biểu
+	public Map<String, String> getFirstAndLastWeek(Long semesterId) {
+		List<Timetable> timetables = timetableRepository.findBySemesterId(semesterId); // Tìm thời khóa biểu theo kỳ học
 
-		// Khởi tạo biến để tìm ngày nhỏ nhất và ngày lớn nhất
+		for (Timetable timetable: timetables
+			 ) {
+			System.out.println("timetable"+timetable);
+		}
+		System.out.println("Total timetables found: " + timetables.size());
+
+		if (timetables.isEmpty()) {
+			System.out.println("No timetables found for semesterId: " + semesterId);
+			return Collections.emptyMap();
+		}
+
 		LocalDate minDate = LocalDate.MAX;
 		LocalDate maxDate = LocalDate.MIN;
 
-		for (Timetable timetable : allTimetables) {
+		for (Timetable timetable : timetables) {
 			List<LocalDate[]> periods = extractStudyPeriods(timetable.getStudyTime());
 
-			// Kiểm tra từng khoảng thời gian để tìm minDate và maxDate
 			for (LocalDate[] period : periods) {
 				LocalDate periodStart = period[0];
 				LocalDate periodEnd = period[1];
 
-				// Cập nhật minDate và maxDate
 				if (periodStart.isBefore(minDate)) {
 					minDate = periodStart;
 				}
@@ -122,22 +135,21 @@ public class TimetableServiceImplement implements TimetableService {
 			}
 		}
 
-		// Tìm tuần đầu tiên và tuần cuối cùng dựa trên minDate và maxDate
+		if (minDate == LocalDate.MAX || maxDate == LocalDate.MIN) {
+			System.out.println("No valid study periods found for semesterId: " + semesterId);
+			return Collections.emptyMap();
+		}
+
 		LocalDate firstWeekStart = getStartOfWeek(minDate);
 		LocalDate lastWeekEnd = getEndOfWeek(maxDate);
 
 		DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd/MM/yyyy");
-		String formatFirst=firstWeekStart.format(formatter);
-		String formatEnd=lastWeekEnd.format(formatter);
-
-		// Trả về kết quả dưới dạng map hoặc đối tượng với ngày bắt đầu và kết thúc
 		Map<String, String> result = new HashMap<>();
-		result.put("firstWeekStart", formatFirst);
-		result.put("lastWeekEnd", formatEnd);
+		result.put("firstWeekStart", firstWeekStart.format(formatter));
+		result.put("lastWeekEnd", lastWeekEnd.format(formatter));
 
 		return result;
 	}
-
 
 
 	// Hàm để lấy ngày bắt đầu của tuần từ một LocalDate (Thứ Hai)
@@ -220,30 +232,6 @@ public class TimetableServiceImplement implements TimetableService {
 
 
 
-	public List<LocalDate[]> extractStudyPeriods(String studyTime) {
-		List<LocalDate[]> periods = new ArrayList<>();
-
-		// Tách chuỗi theo dòng mới "\n" nếu có nhiều khoảng thời gian hoặc ngày lẻ
-		String[] periodStrings = studyTime.split("\n");
-
-		for (String periodString : periodStrings) {
-			String[] dates = periodString.split("-");
-
-			if (dates.length == 2) { // Trường hợp khoảng thời gian
-				LocalDate startDate = LocalDate.parse(dates[0].trim(), DateTimeFormatter.ofPattern("dd/MM/yyyy"));
-				LocalDate endDate = LocalDate.parse(dates[1].trim(), DateTimeFormatter.ofPattern("dd/MM/yyyy"));
-				periods.add(new LocalDate[]{startDate, endDate});
-			} else if (dates.length == 1) { // Trường hợp chỉ có một ngày
-				LocalDate singleDate = LocalDate.parse(dates[0].trim(), DateTimeFormatter.ofPattern("dd/MM/yyyy"));
-				periods.add(new LocalDate[]{singleDate, singleDate}); // Tạo một khoảng mà ngày bắt đầu và kết thúc đều là cùng một ngày
-			}
-		}
-
-		return periods;
-	}
-
-
-
 	@Override
 	public Timetable getTimetableByCourse(String courseId, String NH, String TH,String studyTime) {
 		// Tìm timetable dựa trên thông tin môn học
@@ -295,6 +283,7 @@ public class TimetableServiceImplement implements TimetableService {
 
 
 	@Override
+	@Transactional
 	public List<Timetable> importExcelData(MultipartFile file) throws Exception {
 
 		List<Timetable> timetables = new ArrayList<>();
@@ -433,21 +422,27 @@ public class TimetableServiceImplement implements TimetableService {
 				}
 
 				// Kiểm tra nếu mã môn học và tên môn học trùng với dòng trước
+				// Kiểm tra nếu mã môn học và tên môn học trùng với dòng trước
+				System.out.println("Checking course with Code: " + code + ", NH: " + NH + ", TH: " + TH);
 				Course savedCourse = courseRepository.findByCodeAndNHAndTH(code, NH, TH).orElse(null);
+
 				if (savedCourse == null) {
-					// Nếu không có môn học nào trùng Mã MH và các yếu tố khác, thì tạo mới
+					System.out.println("Course not found. Creating new course...");
 					savedCourse = Course.builder()
 							.code(code)
 							.name(getStringCellValue(row, 2)) // Tên môn học
 							.credits(credits)
 							.NH(NH)
 							.timetables(new HashSet<>())
-							.semester(currentSemester)
 							.TH(TH)
 							.instructor(savedInstructor)
 							.build();
 					savedCourse = courseRepository.save(savedCourse);
+					System.out.println("New course saved: " + savedCourse.getCode() + " - " + savedCourse.getName());
+				} else {
+					System.out.println("Course already exists: " + savedCourse.getCode() + " - " + savedCourse.getName());
 				}
+
 
 				// Lấy thông tin DayOfWeek từ Excel
 				int dayOfWeekNumber = (int) getNumericCellValue(row, 12);
@@ -491,26 +486,46 @@ public class TimetableServiceImplement implements TimetableService {
 					timetable.setEndLessonTime(endLessonTime);
 
 					timetableRepository.save(timetable);
+
 					savedCourse.getTimetables().add(timetable);
 					courseRepository.save(savedCourse);
 					timetables.add(timetable);
 				}
 			}
-
 			workbook.close();
 		} catch (Exception e) {
 			throw new Exception("Failed to process Excel file: " + e.getMessage());
 		}
 
 		System.out.println("Timetables to be saved: " + timetables.size());
+
+		//Cập nhật endate
+		if (currentSemester != null) {
+			Map<String, String> firstAndLastWeek = getFirstAndLastWeek(currentSemester.getId());
+
+			if (firstAndLastWeek.containsKey("lastWeekEnd")) {
+				DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd/MM/yyyy");
+				LocalDate endDate = LocalDate.parse(firstAndLastWeek.get("lastWeekEnd"), formatter);
+				currentSemester.setEndDate(endDate);
+
+
+				semesterRepository.save(currentSemester);
+			}
+	}
 		return timetables;
 	}
 
-	public boolean isRoomInfoRow(Row row) {
+	@Override
+	public List<Semester> getFourSemesterRecent() {
+		return semesterRepository.findTop4ByOrderByStartDateDesc(PageRequest.of(0,4));
+	}
+
+	// HELPER METHOD
+	private boolean isRoomInfoRow(Row row) {
 		return row.getCell(1) != null && row.getCell(1).getStringCellValue().startsWith("Phòng:");
 	}
 
-	public Room extractRoomFromExcel(String roomInfo) {
+	private Room extractRoomFromExcel(String roomInfo) {
 		String roomName = "";
 		String location = "";
 		int capacity = 0;
@@ -565,12 +580,15 @@ public class TimetableServiceImplement implements TimetableService {
 		return roomName;
 	}
 
-	public Semester extractSemesterFromExcel(Row row) {
+	private Semester extractSemesterFromExcel(Row row) {
 		Semester currentSemester = null;
 		String semesterName = null;
 		String academicYear = null;
+		LocalDate startDate = null;
+
 		if (row.getRowNum() <= 10) {
 			String semesterInfo = getStringCellValue(row, 3);
+			String startDateStr = getStringCellValue(row, 1);
 
 			if (!semesterInfo.trim().isEmpty()) {
 				String[] lines = semesterInfo.split("\\r?\\n");
@@ -579,7 +597,6 @@ public class TimetableServiceImplement implements TimetableService {
 				for (String line : lines) {
 					if (line.toLowerCase().contains("học kỳ") && line.toLowerCase().contains("năm học")) {
 						semesterInfo = line.replace("Năm học", "").trim();
-
 						String[] parts = semesterInfo.split("-");
 
 						if (parts.length == 3) {
@@ -593,8 +610,23 @@ public class TimetableServiceImplement implements TimetableService {
 				}
 			}
 
-			if (semesterName != null) {
+			// Kiểm tra và parse ngày bắt đầu học kỳ
+			if (!startDateStr.trim().isEmpty()) {
+				Matcher matcher = Pattern.compile("\\d{2}/\\d{2}/\\d{4}").matcher(startDateStr);//patern dd/mm/yyyy
+				if (matcher.find()) {
+					String extractedDate = matcher.group();
+					try {
+						DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd/MM/yyyy");
+						startDate = LocalDate.parse(extractedDate, formatter);
+						DateTimeFormatter outputFormatter = DateTimeFormatter.ofPattern("dd/MM/yyyy");
+						String formattedDate = startDate.format(outputFormatter);
+					} catch (DateTimeParseException e) {
+						System.out.println("Lỗi khi phân tích ngày bắt đầu học kỳ: " + extractedDate);
+					}
+				}
+			}
 
+			if (semesterName != null) {
 				Optional<Semester> existingSemester = semesterRepository.findByNameAndAcademicYear(semesterName, academicYear);
 				if (existingSemester.isPresent()) {
 					currentSemester = existingSemester.get();
@@ -602,16 +634,38 @@ public class TimetableServiceImplement implements TimetableService {
 					currentSemester = Semester.builder()
 							.name(semesterName)
 							.academicYear(academicYear)
+							.startDate(startDate) // Lưu ngày bắt đầu học kỳ
 							.build();
 					currentSemester = semesterRepository.save(currentSemester);
 				}
 			}
-
 		}
 		return currentSemester;
 	}
 
-	public String[] getFirstNameAndLastNameFromFullName(String fullName) {
+	private List<LocalDate[]> extractStudyPeriods(String studyTime) {
+		List<LocalDate[]> periods = new ArrayList<>();
+
+		// Tách chuỗi theo dòng mới "\n" nếu có nhiều khoảng thời gian hoặc ngày lẻ
+		String[] periodStrings = studyTime.split("\n");
+
+		for (String periodString : periodStrings) {
+			String[] dates = periodString.split("-");
+
+			if (dates.length == 2) { // Trường hợp khoảng thời gian
+				LocalDate startDate = LocalDate.parse(dates[0].trim(), DateTimeFormatter.ofPattern("dd/MM/yyyy"));
+				LocalDate endDate = LocalDate.parse(dates[1].trim(), DateTimeFormatter.ofPattern("dd/MM/yyyy"));
+				periods.add(new LocalDate[]{startDate, endDate});
+			} else if (dates.length == 1) { // Trường hợp chỉ có một ngày
+				LocalDate singleDate = LocalDate.parse(dates[0].trim(), DateTimeFormatter.ofPattern("dd/MM/yyyy"));
+				periods.add(new LocalDate[]{singleDate, singleDate}); // Tạo một khoảng mà ngày bắt đầu và kết thúc đều là cùng một ngày
+			}
+		}
+
+		return periods;
+	}
+
+	private String[] getFirstNameAndLastNameFromFullName(String fullName) {
 		String[] nameParts = fullName.split(" ");
 		String firstName = nameParts[nameParts.length - 1];  // Tên
 		String lastName = String.join(" ",
@@ -778,6 +832,13 @@ public class TimetableServiceImplement implements TimetableService {
 			session = "CHIỀU";
 		} else {
 			session = "TỐI";
+		}
+
+		boolean exists = lessonTimeRepository.existsByLessonNumberAndStartTimeAndEndTime(lessonNum, startTime, endTime);
+
+		if (exists) {
+			System.out.println("LessonTime already exists: Tiết " + lessonNum + " (" + startTime + " - " + endTime + ")");
+			return;
 		}
 
 		LessonTime lessonTime = LessonTime.builder()

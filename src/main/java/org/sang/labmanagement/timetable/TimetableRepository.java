@@ -42,4 +42,15 @@ public interface TimetableRepository extends JpaRepository<Timetable,Long> {
 			String NH
 
 	);
+
+
+	List<Timetable> findBySemesterId(Long semesterId);
+
+
+
+
+
+
+
+
 }

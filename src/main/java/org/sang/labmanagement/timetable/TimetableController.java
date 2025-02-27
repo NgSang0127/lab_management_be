@@ -33,10 +33,14 @@ public class TimetableController {
 		return ResponseEntity.ok(timetableService.getAllTimetableByWeek(startDate, endDate));
 	}
 
+	@GetMapping("/semester")
+	public ResponseEntity<?> getFourSemesterRecent(){
+		return ResponseEntity.ok(timetableService.getFourSemesterRecent());
+	}
 
 	@GetMapping("/weeks-range")
-	public ResponseEntity<Map<String, String>> getFirstAndLastWeek() {
-		Map<String, String> weekRange = timetableService.getFirstAndLastWeek();
+	public ResponseEntity<Map<String, String>> getFirstAndLastWeek(@RequestParam Long semesterId) {
+		Map<String, String> weekRange = timetableService.getFirstAndLastWeek(semesterId);
 		return ResponseEntity.ok(weekRange);
 	}
 

@@ -2,7 +2,9 @@ package org.sang.labmanagement.semester;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import jakarta.persistence.CascadeType;
 import jakarta.persistence.Entity;
+import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
@@ -36,9 +38,9 @@ public class Semester {
 
 	private LocalDate endDate;
 
-	@OneToMany(mappedBy = "semester")
+	@OneToMany(mappedBy = "semester", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
 	@JsonIgnore
-	private List<Course>courses;
+	private List<Timetable> timetables;
 
 
 }

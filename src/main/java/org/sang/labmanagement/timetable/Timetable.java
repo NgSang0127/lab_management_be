@@ -22,6 +22,7 @@ import lombok.Setter;
 import org.sang.labmanagement.course.Course;
 import org.sang.labmanagement.enrollment.Enrollment;
 import org.sang.labmanagement.room.Room;
+import org.sang.labmanagement.semester.Semester;
 import org.sang.labmanagement.timetable.lesson_time.LessonTime;
 import org.sang.labmanagement.user.instructor.Instructor;
 
@@ -48,10 +49,13 @@ public class Timetable {
 	@OneToMany(mappedBy = "timetable")
 	private Set<Enrollment> enrollments;
 
-
 	@ManyToMany(mappedBy = "timetables")
 	@JsonIgnoreProperties("timetables")// Bỏ qua trường timetables khi trả về Course
 	private Set<Course> courses;
+
+	@ManyToOne
+	@JoinColumn(name = "semester_id", nullable = false)
+	private Semester semester;
 
 	private String timetableName;
 

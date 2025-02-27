@@ -68,11 +68,5 @@ public class Course {
 	@JsonIgnoreProperties("courses")//// Bỏ qua trường courses khi trả về Timetable
 	private Set<Timetable> timetables;
 
-	@ManyToOne
-	@JoinColumn(name = "semester_id")
-	@JsonIgnoreProperties("courses")
-	private Semester semester;
-
-
 
 }
