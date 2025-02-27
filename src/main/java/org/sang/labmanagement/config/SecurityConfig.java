@@ -1,5 +1,7 @@
 package org.sang.labmanagement.config;
 
+import static org.springframework.security.config.Customizer.withDefaults;
+
 import jakarta.servlet.http.HttpServletRequest;
 import java.util.Collections;
 import java.util.List;
@@ -38,7 +40,7 @@ public class SecurityConfig {
 				.sessionManagement(management -> management.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
 				.authorizeHttpRequests(authorize -> authorize
 						.requestMatchers("/api/v1/auth/**").permitAll()
-//						.requestMatchers("/ws-notifications/**").permitAll()
+						.requestMatchers("/ws/**", "/chat/**").permitAll()
 						.requestMatchers("/api/v1/admin/**").hasAnyRole("ADMIN","OWNER","CO_OWNER")
 						.requestMatchers("/teacher/**").hasRole("TEACHER")
 						.requestMatchers("/student/**").hasRole("STUDENT")
@@ -58,12 +60,22 @@ public class SecurityConfig {
 	private CorsConfigurationSource corsConfigurationSource() {
 		return request -> {
 			CorsConfiguration corsConfig = new CorsConfiguration();
-			corsConfig.setAllowedOrigins(List.of("http://localhost:5173","http://localhost:5174")); // Frontend URL
+			corsConfig.setAllowedOrigins(List.of("http://localhost:5173", "http://localhost:5174","http://localhost"
+					+ ":3000"));
+
+			// Cho phép các phương thức HTTP
 			corsConfig.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
-			corsConfig.setAllowedHeaders(List.of("*"));
-			corsConfig.setExposedHeaders(List.of("Authorization"));
-			corsConfig.setExposedHeaders(List.of("Content-Disposition"));
-			corsConfig.setAllowCredentials(true); // If you need to send cookies with requests
+
+			// Cho phép gửi các headers cần thiết
+			corsConfig.setAllowedHeaders(List.of("Authorization", "Content-Type"));
+
+			// Expose headers để frontend có thể đọc
+			corsConfig.setExposedHeaders(List.of("Authorization", "Content-Disposition"));
+
+			// Nếu có gửi cookie hoặc token trong request
+			corsConfig.setAllowCredentials(true);
+
+			// CORS cache trong 1 giờ
 			corsConfig.setMaxAge(3600L);
 			return corsConfig;
 		};

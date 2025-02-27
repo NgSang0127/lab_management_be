@@ -36,6 +36,12 @@ public class JwtFilter extends OncePerRequestFilter {
 			@NonNull HttpServletResponse response,
 			@NonNull FilterChain filterChain)
 			throws ServletException, IOException {
+//
+		// Bỏ qua WebSocket request
+		if (request.getServletPath().startsWith("/ws")) {
+			filterChain.doFilter(request, response);
+			return;
+		}
 
 		// Bỏ qua các request liên quan đến authentication
 		if (request.getServletPath().contains(AUTH_PATH)) {
