@@ -51,17 +51,7 @@ public class EmailService {
 		properties.put("confirmationUrl",confirmationUrl);
 		properties.put("activation_code",activationCode);
 
-		Context context=new Context();
-		context.setVariables(properties);
-
-		helper.setFrom("contact@admin.com");
-		helper.setTo(to);
-		helper.setSubject(subject);
-
-		String template=templateEngine.process(templateName,context);
-		helper.setText(template,true);
-
-		mailSender.send(mimeMessage);
+		createContextEmail(to, subject, templateName, mimeMessage, helper, properties);
 	}
 
 	public String generateAndSaveActivationCode(User user){
@@ -89,25 +79,38 @@ public class EmailService {
 
 
 	@Async
-	public void sendMaintenanceReminderEmail(String to, String username, String subject,
+	public void sendMaintenanceReminderEmail(
+			String to, String username,EmailTemplateName emailTemplate, String subject,
 			Long assetId, String assetName,
 			String scheduledDate, String remarks) throws MessagingException {
-		Context context = new Context();
-		context.setVariable("username", username);
-		context.setVariable("assetId", assetId);
-		context.setVariable("assetName", assetName);
-		context.setVariable("scheduledDate", scheduledDate);
-		context.setVariable("remarks", remarks);
+		String templateName=emailTemplate.name();
+		MimeMessage mimeMessage= mailSender.createMimeMessage();
+		MimeMessageHelper helper=new MimeMessageHelper(
+				mimeMessage,
+				MimeMessageHelper.MULTIPART_MODE_MIXED,
+				StandardCharsets.UTF_8.name()
+		);
+		Map<String,Object>properties= new HashMap<String,Object>();
+		properties.put("username", username);
+		properties.put("assetId", assetId);
+		properties.put("assetName", assetName);
+		properties.put("scheduledDate", scheduledDate);
+		properties.put("remarks", remarks);
 
-		String htmlContent = templateEngine.process("maintenance_scheduler", context);
+		createContextEmail(to, subject, templateName, mimeMessage, helper, properties);
+	}
 
-		MimeMessage message = mailSender.createMimeMessage();
-		MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
+	private void createContextEmail(String to, String subject, String templateName, MimeMessage mimeMessage,
+			MimeMessageHelper helper, Map<String, Object> properties) throws MessagingException {
+		Context context=new Context();
+		context.setVariables(properties);
+		helper.setFrom("contact@admin.com");
 		helper.setTo(to);
 		helper.setSubject(subject);
-		helper.setText(htmlContent, true);
+		String template=templateEngine.process(templateName,context);
+		helper.setText(template,true);
 
-		mailSender.send(message);
+		mailSender.send(mimeMessage);
 	}
 
 	@Async
@@ -129,17 +132,7 @@ public class EmailService {
 		properties.put("username",username);
 		properties.put("activation_code",activationCode);
 
-		Context context=new Context();
-		context.setVariables(properties);
-
-		helper.setFrom("contact@admin.com");
-		helper.setTo(to);
-		helper.setSubject(subject);
-
-		String template=templateEngine.process(templateName,context);
-		helper.setText(template,true);
-
-		mailSender.send(mimeMessage);
+		createContextEmail(to, subject, templateName, mimeMessage, helper, properties);
 	}
 
 

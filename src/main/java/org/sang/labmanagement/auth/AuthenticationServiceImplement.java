@@ -18,6 +18,7 @@ import org.sang.labmanagement.auth.request.VerificationRequest;
 import org.sang.labmanagement.auth.response.AuthenticationResponse;
 import org.sang.labmanagement.auth.request.LoginRequest;
 import org.sang.labmanagement.auth.request.RegistrationRequest;
+import org.sang.labmanagement.redis.BaseRedisServiceImpl;
 import org.sang.labmanagement.security.email.EmailService;
 import org.sang.labmanagement.security.email.EmailTemplateName;
 import org.sang.labmanagement.security.email.EmailVerificationCode;
@@ -25,6 +26,7 @@ import org.sang.labmanagement.security.email.EmailVerificationRepository;
 import org.sang.labmanagement.security.jwt.JwtService;
 import org.sang.labmanagement.security.token.Token;
 import org.sang.labmanagement.security.token.TokenRepository;
+import org.sang.labmanagement.security.token.TokenService;
 import org.sang.labmanagement.security.token.TokenType;
 import org.sang.labmanagement.tfa.TwoFactorAuthenticationService;
 import org.sang.labmanagement.user.Role;
@@ -41,6 +43,7 @@ import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.server.ResponseStatusException;
 
 @Service
 @RequiredArgsConstructor
@@ -55,11 +58,12 @@ public class AuthenticationServiceImplement implements AuthenticationService {
 	private final UserRepository userRepository;
 	private final PasswordEncoder passwordEncoder;
 	private final EmailService emailService;
-	private final TokenRepository tokenRepo;
 	private final EmailVerificationRepository emailCodeRepository;
 	private final AuthenticationManager authenticationManager;
 	private final JwtService jwtService;
 	private final TwoFactorAuthenticationService twoFactorAuthenticationService;
+	private final TokenService tokenService;
+	private final BaseRedisServiceImpl<String> redisService;
 
 	@Override
 	public AuthenticationResponse register(RegistrationRequest request) throws MessagingException {
@@ -117,8 +121,7 @@ public class AuthenticationServiceImplement implements AuthenticationService {
 		claims.put("fullName", user.getFullName());//more add field into jwt
 		var jwtToken = jwtService.generateToken(claims, user);
 		var refreshToken = jwtService.generateRefreshToken(user);
-		revokeAllUserTokens(user);
-		saveUserToken(user, jwtToken);
+
 
 		return AuthenticationResponse.builder()
 				.accessToken(jwtToken)
@@ -126,34 +129,8 @@ public class AuthenticationServiceImplement implements AuthenticationService {
 				.refreshToken(refreshToken)
 				.build();
 	}
-	@Override
-	public void saveUserToken(User user, String jwtToken) {
-		Optional<Token> existingToken = tokenRepo.findByToken(jwtToken);
-		if (existingToken.isPresent()) {
-			throw new IllegalStateException("Duplicate token detected. This token already exists.");
-		}
-		var token = Token.builder()
-				.user(user)
-				.token(jwtToken)
-				.tokenType(TokenType.BEARER)
-				.expired(false)
-				.revoked(false)
-				.build();
-		tokenRepo.save(token);
-	}
 
-	@Override
-	public void revokeAllUserTokens(User user) {
-		var validUserTokens=tokenRepo.findAllValidTokenByUser(user.getId());
-		if(validUserTokens.isEmpty()) {
-			return;
-		}
-		validUserTokens.forEach(token->{
-			token.setExpired(true);
-			token.setRevoked(true);
-		});
-		tokenRepo.saveAll(validUserTokens);
-	}
+
 
 	@Override
 	@Transactional
@@ -200,25 +177,16 @@ public class AuthenticationServiceImplement implements AuthenticationService {
 		final String refreshToken;
 		final String username;
 
-		// Kiểm tra xem header có hợp lệ không
 		if (authHeader == null || !authHeader.startsWith("Bearer ")) {
-			response.setStatus(HttpStatus.UNAUTHORIZED.value());
-			response.setContentType(MediaType.APPLICATION_JSON_VALUE);
-			new ObjectMapper().writeValue(response.getOutputStream(),
-					Map.of("error", "User not authenticated"));
+			sendErrorResponse(response, HttpStatus.UNAUTHORIZED, "User not authenticated");
 			return;
 		}
 
-		// Trích xuất refreshToken từ header
 		refreshToken = authHeader.substring(7);
 		username = jwtService.extractUsername(refreshToken);
 
-		// Kiểm tra xem username có tồn tại không
 		if (username == null) {
-			response.setStatus(HttpStatus.UNAUTHORIZED.value());
-			response.setContentType(MediaType.APPLICATION_JSON_VALUE);
-			new ObjectMapper().writeValue(response.getOutputStream(),
-					Map.of("error", "Username not found"));
+			sendErrorResponse(response, HttpStatus.UNAUTHORIZED, "Username not found");
 			return;
 		}
 
@@ -226,32 +194,47 @@ public class AuthenticationServiceImplement implements AuthenticationService {
 				() -> new UsernameNotFoundException("User not found")
 		);
 
-		// Kiểm tra refreshToken có hợp lệ không
-		if (jwtService.isTokenValid(refreshToken, user)) {
-			// Tạo accessToken mới và lưu vào database
-			var accessToken = jwtService.generateToken(user);
-			revokeAllUserTokens(user);
-			saveUserToken(user, accessToken);
+		// Kiểm tra xem Refresh Token có bị thu hồi không
+		if (redisService.get("blacklist:refresh:" + refreshToken) != null) {
+			sendErrorResponse(response, HttpStatus.FORBIDDEN, "Refresh token is revoked");
+			return;
+		}
 
-			// Tạo phản hồi chứa accessToken và refreshToken
+
+		String storedRefreshToken = tokenService.getRefreshToken(username);
+		if (storedRefreshToken == null || !storedRefreshToken.equals(refreshToken)) {
+			sendErrorResponse(response, HttpStatus.FORBIDDEN, "Invalid or expired refresh token");
+			return;
+		}
+
+		if (jwtService.isTokenValid(refreshToken, user)) {
+			var accessToken = jwtService.generateToken(user);
+
+			// Thu hồi Refresh Token cũ trước khi tạo mới
+			tokenService.revokeRefreshToken(username);
+			var newRefreshToken = jwtService.generateRefreshToken(user);
+
+
 			var authResponse = AuthenticationResponse.builder()
 					.accessToken(accessToken)
-					.refreshToken(refreshToken)
+					.refreshToken(newRefreshToken)
 					.build();
 
 			response.setStatus(HttpStatus.OK.value());
 			response.setContentType(MediaType.APPLICATION_JSON_VALUE);
 			new ObjectMapper().writeValue(response.getOutputStream(), authResponse);
 		} else {
-			response.setStatus(HttpStatus.FORBIDDEN.value());
-			response.setContentType(MediaType.APPLICATION_JSON_VALUE);
-			new ObjectMapper().writeValue(response.getOutputStream(),
-					Map.of("error", "Invalid refresh token"));
+			sendErrorResponse(response, HttpStatus.FORBIDDEN, "Invalid refresh token");
 		}
 	}
 
 
 
+	private void sendErrorResponse(HttpServletResponse response, HttpStatus status, String message) throws IOException {
+		response.setStatus(status.value());
+		response.setContentType(MediaType.APPLICATION_JSON_VALUE);
+		new ObjectMapper().writeValue(response.getOutputStream(), Map.of("error", message));
+	}
 
 
 	@Override
@@ -402,31 +385,36 @@ public class AuthenticationServiceImplement implements AuthenticationService {
 	@Override
 	@Transactional
 	public AuthenticationResponse verifyOtpQR(String otpCode, String username) {
-		User user=userRepository.findByUsername(username)
-				.orElseThrow(()-> new UsernameNotFoundException("Username not found with "+username));
-		if (user != null && user.isTwoFactorEnabled()) {
-			boolean isValidOtp = twoFactorAuthenticationService.isOtpValid(user.getSecret(), otpCode);
-			if (isValidOtp) {
-				// Nếu OTP hợp lệ, tạo và trả về token
-				var claims = new HashMap<String, Object>();
-				claims.put("fullName", user.getFullName());
-				var jwtToken = jwtService.generateToken(claims, user);
-				var refreshToken = jwtService.generateRefreshToken(user);
+		User user = userRepository.findByUsername(username)
+				.orElseThrow(() -> new UsernameNotFoundException("Username not found: " + username));
 
-				revokeAllUserTokens(user);
-				saveUserToken(user, jwtToken);
-
-				return AuthenticationResponse.builder()
-						.accessToken(jwtToken)
-						.tfaEnabled(user.isTwoFactorEnabled())
-						.refreshToken(refreshToken)
-						.build();
-			} else {
-				throw new RuntimeException("Invalid OTP code.");
-			}
+		if (!user.isTwoFactorEnabled()) {
+			throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "2FA is not enabled for this user.");
 		}
-		throw new IllegalStateException("User not found or 2FA not enabled.");
+
+		boolean isValidOtp = twoFactorAuthenticationService.isOtpValid(user.getSecret(), otpCode);
+		if (!isValidOtp) {
+			throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Invalid OTP code.");
+		}
+
+		// Xóa Refresh Token cũ trước khi tạo mới
+		tokenService.revokeRefreshToken(username);
+
+		var claims = new HashMap<String, Object>();
+		claims.put("fullName", user.getFullName());
+
+		var jwtToken = jwtService.generateToken(claims, user);
+		var refreshToken = jwtService.generateRefreshToken(user);
+
+
+
+		return AuthenticationResponse.builder()
+				.accessToken(jwtToken)
+				.tfaEnabled(true)
+				.refreshToken(refreshToken)
+				.build();
 	}
+
 
 	@Override
 	@Transactional
@@ -454,31 +442,32 @@ public class AuthenticationServiceImplement implements AuthenticationService {
 	@Transactional
 	public AuthenticationResponse verifyTFAEmail(VerificationRequest request) {
 		User user = userRepository.findByUsername(request.getUsername())
-				.orElseThrow(() -> new UsernameNotFoundException("Username not found with " + request.getUsername()));
+				.orElseThrow(() -> new UsernameNotFoundException("Username not found: " + request.getUsername()));
 
-		EmailVerificationCode otp = emailCodeRepository.findByCode(request.getCode()).orElse(null);
-		if (otp == null) {
-			throw new IllegalArgumentException("Invalid OTP TFA");
-		}
+		EmailVerificationCode otp = emailCodeRepository.findByCode(request.getCode())
+				.orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid OTP TFA"));
 
 		if (otp.isExpired()) {
-			throw new IllegalArgumentException("Expired OTP TFA");
+			throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Expired OTP TFA");
 		}
 
 		if (otp.isValidated()) {
-			throw new IllegalArgumentException("OTP TFA has already been used");
+			throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "OTP TFA has already been used");
 		}
 
 		otp.validate();
 		emailCodeRepository.save(otp);
 
+		// Xóa Refresh Token cũ trước khi tạo mới
+		tokenService.revokeRefreshToken(user.getUsername());
+
 		var claims = new HashMap<String, Object>();
 		claims.put("fullName", user.getFullName());
+
 		var jwtToken = jwtService.generateToken(claims, user);
 		var refreshToken = jwtService.generateRefreshToken(user);
 
-		revokeAllUserTokens(user);
-		saveUserToken(user, jwtToken);
+
 
 		return AuthenticationResponse.builder()
 				.accessToken(jwtToken)
@@ -486,5 +475,6 @@ public class AuthenticationServiceImplement implements AuthenticationService {
 				.refreshToken(refreshToken)
 				.build();
 	}
+
 
 }

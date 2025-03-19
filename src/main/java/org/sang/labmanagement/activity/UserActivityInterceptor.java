@@ -13,17 +13,6 @@ public class UserActivityInterceptor implements HandlerInterceptor {
 
 	private final UserActivityLogService userActivityLogService;
 
-	@Override
-	public boolean preHandle(HttpServletRequest request, HttpServletResponse response, Object handler)
-			throws Exception {
-		String username = request.getUserPrincipal() != null ? request.getUserPrincipal().getName() : null;
 
-		// Kiểm tra nếu có tên người dùng thì mới gọi startSession
-		if (username != null) {
-			userActivityLogService.startSession(username);
-		}
-
-		return true;
-	}
 
 }

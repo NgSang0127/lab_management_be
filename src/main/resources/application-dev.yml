@@ -4,6 +4,10 @@ spring:
     username: root
     password: 0966420942
     driver-class-name: com.mysql.cj.jdbc.Driver
+  data:
+    redis:
+      repositories:
+        enabled: false
   jpa:
     hibernate:
       ddl-auto: update
@@ -11,7 +15,7 @@ spring:
     database: mysql
     properties:
       hibernate:
-        format_sql: true
+#        format_sql: true
         jdbc:
           time_zone: Asia/Ho_Chi_Minh  #VietNam
           use_fractional_seconds: true
@@ -36,10 +40,16 @@ spring:
         connection timeout: 5000
         timeout: 3000
         write-timeout: 5000
+  redis:
+    host: localhost
+    port: 6379
+    time-to-live: 3600000 # Cache TTL (1 giờ)
+  cache:
+    type: redis
 application:
   security:
     jwt:
-      secret-key: 404E635266526A586E3272357538782F413F4428472B4B6250645367566B5970
+      secret-key: 404E635266426A586E3272357538782F413F4428472B4B6250645367566B5920
       expiration: 8640000 # a day
       refresh-token:
         expiration: 604800000 #7 days
@@ -53,6 +63,9 @@ logging:
   level:
     root: INFO
     com.example: DEBUG
+    org.hibernate.SQL: DEBUG
+    org.springframework.cache: TRACE
+    org.springframework.data.redis: DEBUG
   file:
     name: logs/spring-boot-app.log
 server:

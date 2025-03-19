@@ -9,6 +9,8 @@ import org.sang.labmanagement.asset.Asset;
 import org.sang.labmanagement.asset.AssetRepository;
 import org.sang.labmanagement.common.PageResponse;
 import org.sang.labmanagement.exception.ResourceNotFoundException;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -22,6 +24,7 @@ public class MaintenanceService {
 	private final AssetRepository assetRepository;
 	private final MaintenanceMapper maintenanceMapper;
 
+	@Cacheable(value = "maintenances",key="#page + '-' + #size")
 	public PageResponse<MaintenanceDTO> getAllMaintenances(int page,int size,String keyword,String status){
 		Pageable pageable= PageRequest.of(page,size);
 		Specification<Maintenance>spec=MaintenanceSpecification.getAssetsByKeywordAndStatus(keyword, status);
@@ -41,12 +44,14 @@ public class MaintenanceService {
 				.build();
 	};
 
+	@Cacheable(value = "maintenance",key="#id")
 	public MaintenanceDTO getMaintenanceById(Long id) {
 		Maintenance maintenance = maintenanceRepository.findById(id)
 				.orElseThrow(() -> new ResourceNotFoundException("Maintenance not found with id " + id));
 		return maintenanceMapper.toDTO(maintenance);
 	}
 
+	@CacheEvict(value = "maintenances",allEntries = true)
 	public MaintenanceDTO createMaintenance(MaintenanceDTO maintenanceDTO){
 		Asset asset=assetRepository.findById(maintenanceDTO.getAssetId())
 				.orElseThrow(()->new ResourceNotFoundException("Asset not found with id "+maintenanceDTO.getAssetId()));
@@ -56,6 +61,7 @@ public class MaintenanceService {
 		return maintenanceMapper.toDTO(savedMaintenance);
 	}
 
+	@CacheEvict(value = {"maintenance","maintenances"} ,allEntries = true)
 	public MaintenanceDTO updateMaintenance(Long id, MaintenanceDTO maintenanceDTO) {
 		Maintenance existingMaintenance = maintenanceRepository.findById(id)
 				.orElseThrow(() -> new ResourceNotFoundException("Maintenance not found with id " + id));
@@ -74,6 +80,7 @@ public class MaintenanceService {
 		return maintenanceMapper.toDTO(updatedMaintenance);
 	}
 
+	@CacheEvict(value = {"maintenance","maintenances"},allEntries = true)
 	public void deleteMaintenance(Long id) {
 		Maintenance maintenance = maintenanceRepository.findById(id)
 				.orElseThrow(() -> new ResourceNotFoundException("Maintenance not found with id " + id));

@@ -6,6 +6,7 @@ import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.sang.labmanagement.security.email.EmailService;
 import org.sang.labmanagement.security.email.EmailTemplateName;
+import org.sang.labmanagement.security.email.EmailVerificationCode;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
@@ -35,6 +36,7 @@ public class MaintenanceScheduler {
 				emailService.sendMaintenanceReminderEmail(
 						email,
 						username,
+						EmailTemplateName.MAINTENANCE_SCHEDULER,
 						subject,
 						maintenance.getAssetId(),
 						maintenanceService.getAssetNameById(maintenance.getAssetId()),

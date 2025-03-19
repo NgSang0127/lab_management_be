@@ -31,10 +31,6 @@ public interface AuthenticationService {
 	void refreshToken(HttpServletRequest request,
 			HttpServletResponse response) throws IOException;
 
-	void saveUserToken(User user,String accessToken);
-
-	void revokeAllUserTokens(User user);
-
 	boolean changePassword(ChangePasswordRequest request,Authentication connectedUser);
 
 	String forgotPassword(ForgotPasswordRequest request) throws MessagingException;

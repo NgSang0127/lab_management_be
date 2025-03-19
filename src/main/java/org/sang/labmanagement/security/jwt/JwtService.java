@@ -11,12 +11,17 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.function.Function;
 import javax.crypto.SecretKey;
+import lombok.RequiredArgsConstructor;
+import org.sang.labmanagement.redis.BaseRedisServiceImpl;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Service;
 
 @Service
+@RequiredArgsConstructor
 public class JwtService {
+
+	private final BaseRedisServiceImpl<String> redisService;
 
 	@Value("${application.security.jwt.expiration}")
 	private long jwtExpiration;
@@ -37,7 +42,10 @@ public class JwtService {
 	public String generateRefreshToken(
 			UserDetails userDetails
 	) {
-		return buildToken(new HashMap<>(), userDetails, refreshExpiration);
+		String refreshToken=buildToken(new HashMap<>(), userDetails, refreshExpiration);
+		redisService.setWithExpiration("refresh_token:" + userDetails.getUsername(), refreshToken, refreshExpiration);
+
+		return refreshToken;
 	}
 
 	private String buildToken(Map<String, Object> extraClaims, UserDetails userDetails, long jwtExpiration) {
@@ -53,9 +61,16 @@ public class JwtService {
 				.compact();
 	}
 	public boolean isTokenValid(String token, UserDetails userDetails) {
-		final String userName = extractUsername(token);
-		return  (userName.equals(userDetails.getUsername()) && !isTokenExpired(token));
+		final String username = extractUsername(token);
+
+
+		if (redisService.get("blacklist:" + token) != null) {
+			return false; // Token đã bị thu hồi
+		}
+
+		return username.equals(userDetails.getUsername()) && !isTokenExpired(token);
 	}
+
 
 	private boolean isTokenExpired(String token) {
 		return extractExpiration(token).before(new Date());//so sánh thời gian hết hạn với thời gian hiện tại
