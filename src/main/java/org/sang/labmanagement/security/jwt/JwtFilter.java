@@ -9,7 +9,6 @@ import java.io.IOException;
 import lombok.RequiredArgsConstructor;
 
 import org.sang.labmanagement.redis.BaseRedisServiceImpl;
-import org.sang.labmanagement.security.token.TokenRepository;
 import org.springframework.http.HttpHeaders;
 import org.springframework.lang.NonNull;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
@@ -26,7 +25,6 @@ public class JwtFilter extends OncePerRequestFilter {
 
 	private final JwtService jwtService;
 	private final UserDetailsService userDetailsService;
-	private final TokenRepository tokenRepository;
 	private final BaseRedisServiceImpl<String> redisService;
 
 	private static final String AUTH_PATH = "/api/v1/auth";
@@ -44,13 +42,8 @@ public class JwtFilter extends OncePerRequestFilter {
 			return;
 		}
 
-		final String authHeader = request.getHeader(HttpHeaders.AUTHORIZATION);
-		if (authHeader == null || !authHeader.startsWith("Bearer ")) {
-			sendUnauthorizedResponse(response, "Missing or invalid Authorization header");
-			return;
-		}
-
-		final String jwt = authHeader.substring(7).trim();
+		// 🔹 Lấy token từ cookie (ưu tiên)
+		String jwt = getTokenFromCookies(request, "access_token");
 		try {
 			String username = jwtService.extractUsername(jwt);
 			if (username != null && SecurityContextHolder.getContext().getAuthentication() == null) {
@@ -105,4 +98,16 @@ public class JwtFilter extends OncePerRequestFilter {
 	private void sendUnauthorizedResponse(HttpServletResponse response, String message) throws IOException {
 		response.sendError(HttpServletResponse.SC_UNAUTHORIZED, message);
 	}
+
+	private String getTokenFromCookies(HttpServletRequest request, String cookieName) {
+		if (request.getCookies() != null) {
+			for (var cookie : request.getCookies()) {
+				if (cookie.getName().equals(cookieName)) {
+					return cookie.getValue();
+				}
+			}
+		}
+		return null;
+	}
+
 }

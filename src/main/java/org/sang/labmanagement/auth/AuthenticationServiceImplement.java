@@ -2,6 +2,7 @@ package org.sang.labmanagement.auth;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.mail.MessagingException;
+import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
@@ -18,16 +19,14 @@ import org.sang.labmanagement.auth.request.VerificationRequest;
 import org.sang.labmanagement.auth.response.AuthenticationResponse;
 import org.sang.labmanagement.auth.request.LoginRequest;
 import org.sang.labmanagement.auth.request.RegistrationRequest;
+import org.sang.labmanagement.cookie.CookieService;
 import org.sang.labmanagement.redis.BaseRedisServiceImpl;
 import org.sang.labmanagement.security.email.EmailService;
 import org.sang.labmanagement.security.email.EmailTemplateName;
 import org.sang.labmanagement.security.email.EmailVerificationCode;
 import org.sang.labmanagement.security.email.EmailVerificationRepository;
 import org.sang.labmanagement.security.jwt.JwtService;
-import org.sang.labmanagement.security.token.Token;
-import org.sang.labmanagement.security.token.TokenRepository;
 import org.sang.labmanagement.security.token.TokenService;
-import org.sang.labmanagement.security.token.TokenType;
 import org.sang.labmanagement.tfa.TwoFactorAuthenticationService;
 import org.sang.labmanagement.user.Role;
 import org.sang.labmanagement.user.User;
@@ -64,6 +63,7 @@ public class AuthenticationServiceImplement implements AuthenticationService {
 	private final TwoFactorAuthenticationService twoFactorAuthenticationService;
 	private final TokenService tokenService;
 	private final BaseRedisServiceImpl<String> redisService;
+	private final CookieService cookieService;
 
 	@Override
 	public AuthenticationResponse register(RegistrationRequest request) throws MessagingException {
@@ -93,7 +93,7 @@ public class AuthenticationServiceImplement implements AuthenticationService {
 	}
 
 	@Override
-	public AuthenticationResponse login(LoginRequest request) {
+	public AuthenticationResponse login(LoginRequest request, HttpServletResponse response) {
 		var auth = authenticationManager.authenticate(
 				new UsernamePasswordAuthenticationToken(
 						request.getUsername(),
@@ -101,7 +101,8 @@ public class AuthenticationServiceImplement implements AuthenticationService {
 				)
 		);
 		var user = ((User) auth.getPrincipal());
-		//enable tfa
+
+		// Nếu bật TFA, chưa trả về cookie vội
 		if (user.isTwoFactorEnabled()) {
 			String secret = user.getSecret();
 			if (secret == null) {
@@ -110,25 +111,28 @@ public class AuthenticationServiceImplement implements AuthenticationService {
 				userRepository.save(user);
 			}
 
-			// Trả về thông tin mã QR URI và yêu cầu người dùng nhập OTP
 			return AuthenticationResponse.builder()
 					.message("Please enter the OTP code after scanning the QR code.")
 					.tfaEnabled(true)
 					.build();
 		}
 
+		// Nếu không bật TFA, tạo token và lưu vào cookie luôn
 		var claims = new HashMap<String, Object>();
-		claims.put("fullName", user.getFullName());//more add field into jwt
+		claims.put("fullName", user.getFullName());
 		var jwtToken = jwtService.generateToken(claims, user);
 		var refreshToken = jwtService.generateRefreshToken(user);
 
+		// Set cookie
+		cookieService.addCookie(response, "access_token", jwtToken, null);
+		cookieService.addCookie(response, "refresh_token", refreshToken, null);
 
 		return AuthenticationResponse.builder()
 				.accessToken(jwtToken)
 				.tfaEnabled(false)
-				.refreshToken(refreshToken)
 				.build();
 	}
+
 
 
 
@@ -173,16 +177,8 @@ public class AuthenticationServiceImplement implements AuthenticationService {
 
 	@Override
 	public void refreshToken(HttpServletRequest request, HttpServletResponse response) throws IOException {
-		final String authHeader = request.getHeader(HttpHeaders.AUTHORIZATION);
-		final String refreshToken;
-		final String username;
-
-		if (authHeader == null || !authHeader.startsWith("Bearer ")) {
-			sendErrorResponse(response, HttpStatus.UNAUTHORIZED, "User not authenticated");
-			return;
-		}
-
-		refreshToken = authHeader.substring(7);
+		String username;
+		String refreshToken = cookieService.getCookieValue(request, "refresh_token");
 		username = jwtService.extractUsername(refreshToken);
 
 		if (username == null) {
@@ -213,6 +209,10 @@ public class AuthenticationServiceImplement implements AuthenticationService {
 			// Thu hồi Refresh Token cũ trước khi tạo mới
 			tokenService.revokeRefreshToken(username);
 			var newRefreshToken = jwtService.generateRefreshToken(user);
+
+			// Ghi đè cookie mới
+			cookieService.addCookie(response, "access_token", accessToken, null);
+			cookieService.addCookie(response, "refresh_token", newRefreshToken, null);
 
 
 			var authResponse = AuthenticationResponse.builder()
@@ -384,7 +384,7 @@ public class AuthenticationServiceImplement implements AuthenticationService {
 
 	@Override
 	@Transactional
-	public AuthenticationResponse verifyOtpQR(String otpCode, String username) {
+	public AuthenticationResponse verifyOtpQR(String otpCode, String username,HttpServletResponse response) {
 		User user = userRepository.findByUsername(username)
 				.orElseThrow(() -> new UsernameNotFoundException("Username not found: " + username));
 
@@ -406,6 +406,9 @@ public class AuthenticationServiceImplement implements AuthenticationService {
 		var jwtToken = jwtService.generateToken(claims, user);
 		var refreshToken = jwtService.generateRefreshToken(user);
 
+// Ghi đè cookie mới
+		cookieService.addCookie(response, "access_token", jwtToken, null);
+		cookieService.addCookie(response, "refresh_token", refreshToken, null);
 
 
 		return AuthenticationResponse.builder()
@@ -440,7 +443,7 @@ public class AuthenticationServiceImplement implements AuthenticationService {
 
 	@Override
 	@Transactional
-	public AuthenticationResponse verifyTFAEmail(VerificationRequest request) {
+	public AuthenticationResponse verifyTFAEmail(VerificationRequest request,HttpServletResponse response) {
 		User user = userRepository.findByUsername(request.getUsername())
 				.orElseThrow(() -> new UsernameNotFoundException("Username not found: " + request.getUsername()));
 
@@ -467,6 +470,8 @@ public class AuthenticationServiceImplement implements AuthenticationService {
 		var jwtToken = jwtService.generateToken(claims, user);
 		var refreshToken = jwtService.generateRefreshToken(user);
 
+		cookieService.addCookie(response, "access_token", jwtToken, null);
+		cookieService.addCookie(response, "refresh_token", refreshToken,null);
 
 
 		return AuthenticationResponse.builder()

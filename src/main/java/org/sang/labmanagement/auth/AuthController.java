@@ -50,9 +50,10 @@ public class AuthController {
 
 	@PostMapping("/login")
 	public ResponseEntity<AuthenticationResponse> login(
-			@RequestBody LoginRequest request
+			@RequestBody LoginRequest request,
+			HttpServletResponse response
 	) {
-		return ResponseEntity.ok(authService.login(request));
+		return ResponseEntity.ok(authService.login(request,response));
 	}
 
 
@@ -112,9 +113,10 @@ public class AuthController {
 
 	@PostMapping("/verify-qr")
 	public ResponseEntity<?>verifyCode(
-			@RequestBody VerificationRequest request
+			@RequestBody VerificationRequest request,
+			HttpServletResponse response
 	){
-		return ResponseEntity.ok(authService.verifyOtpQR(request.getCode(),request.getUsername()));
+		return ResponseEntity.ok(authService.verifyOtpQR(request.getCode(),request.getUsername(),response));
 	}
 
 
@@ -130,8 +132,9 @@ public class AuthController {
 	}
 
 	@PostMapping("/verify-otp")
-	public ResponseEntity<AuthenticationResponse> verifyTFAEmail(@RequestBody VerificationRequest request) {
-			return ResponseEntity.ok(authService.verifyTFAEmail(request));
+	public ResponseEntity<AuthenticationResponse> verifyTFAEmail(@RequestBody VerificationRequest request,
+			HttpServletResponse response) {
+			return ResponseEntity.ok(authService.verifyTFAEmail(request,response));
 		}
 
 

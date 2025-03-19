@@ -24,7 +24,7 @@ public interface AuthenticationService {
 
 	User findUser(Authentication connectedUser);
 
-	AuthenticationResponse login(LoginRequest request);
+	AuthenticationResponse login(LoginRequest request,HttpServletResponse response);
 
 	void activateAccount(String code) throws MessagingException;
 
@@ -43,10 +43,10 @@ public interface AuthenticationService {
 
 	AuthenticationResponse toggleTwoFactorAuthentication(Authentication connectedUser );
 
-	AuthenticationResponse verifyOtpQR(String otpCode,String username);
+	AuthenticationResponse verifyOtpQR(String otpCode,String username,HttpServletResponse response);
 
 	String verifyOtpByMail(String username);
 
-	AuthenticationResponse verifyTFAEmail(VerificationRequest request);
+	AuthenticationResponse verifyTFAEmail(VerificationRequest request,HttpServletResponse response);
 
 }
