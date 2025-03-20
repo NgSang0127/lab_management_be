@@ -17,7 +17,7 @@ public class CookieService {
 
 	public void addCookie(HttpServletResponse response, String name, String value, Integer maxAge) {
 		Cookie cookie = new Cookie(name, value);
-		cookie.setHttpOnly(true);   // Chặn truy cập từ JavaScript
+		cookie.setHttpOnly(false);   // Chặn truy cập từ JavaScript
 		cookie.setSecure(false);     // Chỉ gửi qua HTTPS (bật nếu có SSL)
 		cookie.setPath("/");        // Áp dụng cho toàn bộ API
 		cookie.setMaxAge(

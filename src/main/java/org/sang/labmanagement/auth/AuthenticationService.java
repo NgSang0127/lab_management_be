@@ -20,13 +20,13 @@ public interface AuthenticationService {
 
 	AuthenticationResponse register(RegistrationRequest request) throws MessagingException;
 
-	void sendValidationEmail(User user) throws MessagingException;
+	void sendValidationEmail(String email) throws MessagingException;
 
 	User findUser(Authentication connectedUser);
 
 	AuthenticationResponse login(LoginRequest request,HttpServletResponse response);
 
-	void activateAccount(String code) throws MessagingException;
+	void activateAccount(String code,String email) throws MessagingException;
 
 	void refreshToken(HttpServletRequest request,
 			HttpServletResponse response) throws IOException;

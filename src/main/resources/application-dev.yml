@@ -8,6 +8,8 @@ spring:
     redis:
       repositories:
         enabled: false
+      host: localhost
+      port: 6379
   jpa:
     hibernate:
       ddl-auto: update
@@ -19,7 +21,6 @@ spring:
         jdbc:
           time_zone: Asia/Ho_Chi_Minh  #VietNam
           use_fractional_seconds: true
-        # Giới thiệu các tùy chọn bổ sung cho Hibernate
         dialect: org.hibernate.dialect.MySQLDialect  # Sử dụng dialect hỗ trợ MySQL 8+ với microseconds
   jackson:
     date-format: "dd/MM/yyyy"
@@ -40,23 +41,17 @@ spring:
         connection timeout: 5000
         timeout: 3000
         write-timeout: 5000
-  redis:
-    host: localhost
-    port: 6379
-    time-to-live: 3600000 # Cache TTL (1 giờ)
-  cache:
-    type: redis
 application:
   security:
     jwt:
-      secret-key: 404E635266426A586E3272357538782F413F4428472B4B6250645367566B5920
+      secret-key: 404E635266426A586E3272357538782F213F4428472B4B6250645367566B5920
       expiration: 8640000 # a day
       refresh-token:
         expiration: 604800000 #7 days
   mailing:
+    expiration: 300 # 5 minutes
     backend:
       activation-url: http://localhost:8080/api/v1/auth/activate-account
-      reset-password-url: http://localhost:8080/api/v1/auth/reset-password
     success-url: http://localhost:5173/success?activated=true
     error-url: http://localhost:5173/error?message=
 logging:

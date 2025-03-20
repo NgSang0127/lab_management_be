@@ -1,12 +1,11 @@
 package org.sang.labmanagement.auth;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import jakarta.mail.IllegalWriteException;
 import jakarta.mail.MessagingException;
-import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
-import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
@@ -23,8 +22,6 @@ import org.sang.labmanagement.cookie.CookieService;
 import org.sang.labmanagement.redis.BaseRedisServiceImpl;
 import org.sang.labmanagement.security.email.EmailService;
 import org.sang.labmanagement.security.email.EmailTemplateName;
-import org.sang.labmanagement.security.email.EmailVerificationCode;
-import org.sang.labmanagement.security.email.EmailVerificationRepository;
 import org.sang.labmanagement.security.jwt.JwtService;
 import org.sang.labmanagement.security.token.TokenService;
 import org.sang.labmanagement.tfa.TwoFactorAuthenticationService;
@@ -32,7 +29,6 @@ import org.sang.labmanagement.user.Role;
 import org.sang.labmanagement.user.User;
 import org.sang.labmanagement.user.UserRepository;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.security.authentication.AuthenticationManager;
@@ -51,13 +47,9 @@ public class AuthenticationServiceImplement implements AuthenticationService {
 	@Value("${application.mailing.backend.activation-url}")
 	private String activationUrl;
 
-	@Value("${application.mailing.backend.reset-password-url}")
-	private String resetPasswordUrl;
-
 	private final UserRepository userRepository;
 	private final PasswordEncoder passwordEncoder;
 	private final EmailService emailService;
-	private final EmailVerificationRepository emailCodeRepository;
 	private final AuthenticationManager authenticationManager;
 	private final JwtService jwtService;
 	private final TwoFactorAuthenticationService twoFactorAuthenticationService;
@@ -67,9 +59,26 @@ public class AuthenticationServiceImplement implements AuthenticationService {
 
 	@Override
 	public AuthenticationResponse register(RegistrationRequest request) throws MessagingException {
+		Optional<User> existingUser = userRepository.findByEmail(request.getEmail());
+
+		if (existingUser.isPresent()) {
+			User user = existingUser.get();
+
+			if (!user.isEnabled()) {
+				sendValidationEmail(user.getEmail());
+				return AuthenticationResponse.builder()
+						.message("Email is already registered but not verified. Verification email resent.")
+						.role(user.getRole())
+						.build();
+			}
+
+			throw new IllegalStateException("Email is already used");
+		}
+
 		if (userRepository.findByUsername(request.getUsername()).isPresent()) {
 			throw new IllegalStateException("Username is already used");
 		}
+
 		User savedUser = User.builder()
 				.firstName(request.getFirstName())
 				.lastName(request.getLastName())
@@ -85,12 +94,14 @@ public class AuthenticationServiceImplement implements AuthenticationService {
 				.build();
 
 		userRepository.save(savedUser);
-		sendValidationEmail(savedUser);
+		sendValidationEmail(savedUser.getEmail());
+
 		return AuthenticationResponse.builder()
-				.message("Register successful")
+				.message("Register successful. Please verify your email.")
 				.role(savedUser.getRole())
 				.build();
 	}
+
 
 	@Override
 	public AuthenticationResponse login(LoginRequest request, HttpServletResponse response) {
@@ -138,26 +149,22 @@ public class AuthenticationServiceImplement implements AuthenticationService {
 
 	@Override
 	@Transactional
-	public void activateAccount(String code) throws MessagingException {
-		// Tìm mã xác thực trong DB
-		EmailVerificationCode savedEmailVerificationCode = emailCodeRepository.findByCode(code)
-				.orElseThrow(() -> new RuntimeException("The code is incorrect or has expired"));
+	public void activateAccount(String code,String email) throws MessagingException {
+		String storedCode=emailService.getEmailCode(email);
 
-		// Kiểm tra xem mã đã được sử dụng chưa
-		if (savedEmailVerificationCode.isValidated()) {
-			throw new RuntimeException("The activation code has already been used.");
+		if (storedCode == null) {
+			throw new RuntimeException("The code is incorrect or has expired");
 		}
 
 		// Kiểm tra xem mã đã hết hạn chưa
-		if (savedEmailVerificationCode.isExpired()) {
-			// Xóa mã cũ và gửi mã mới
-			emailCodeRepository.delete(savedEmailVerificationCode);
-			sendValidationEmail(savedEmailVerificationCode.getUser());
+		if (emailService.isEmailCodeExpired(email)) {
+			emailService.revokeEmailCode(email);
+			sendValidationEmail(email);
 			throw new RuntimeException("The activation code has expired. A new code has been sent to your email.");
 		}
 
-		// Kích hoạt tài khoản người dùng
-		User user = userRepository.findById(savedEmailVerificationCode.getUser().getId())
+
+		User user = userRepository.findByEmail(email)
 				.orElseThrow(() -> new UsernameNotFoundException("User not found"));
 
 		if (user.isEnabled()) {
@@ -167,11 +174,9 @@ public class AuthenticationServiceImplement implements AuthenticationService {
 		user.setEnabled(true);
 		userRepository.save(user);
 
-		// Đánh dấu mã là đã sử dụng
-		savedEmailVerificationCode.validate();
-		emailCodeRepository.save(savedEmailVerificationCode);
+		// Đánh dấu mã là đã sử dụng-> xóa
+		emailService.deleteEmailCode(email);
 	}
-
 
 
 
@@ -179,6 +184,10 @@ public class AuthenticationServiceImplement implements AuthenticationService {
 	public void refreshToken(HttpServletRequest request, HttpServletResponse response) throws IOException {
 		String username;
 		String refreshToken = cookieService.getCookieValue(request, "refresh_token");
+		if (refreshToken == null) {
+			sendErrorResponse(response, HttpStatus.UNAUTHORIZED, "Missing refresh token");
+			return;
+		}
 		username = jwtService.extractUsername(refreshToken);
 
 		if (username == null) {
@@ -190,6 +199,8 @@ public class AuthenticationServiceImplement implements AuthenticationService {
 				() -> new UsernameNotFoundException("User not found")
 		);
 
+
+
 		// Kiểm tra xem Refresh Token có bị thu hồi không
 		if (redisService.get("blacklist:refresh:" + refreshToken) != null) {
 			sendErrorResponse(response, HttpStatus.FORBIDDEN, "Refresh token is revoked");
@@ -198,7 +209,7 @@ public class AuthenticationServiceImplement implements AuthenticationService {
 
 
 		String storedRefreshToken = tokenService.getRefreshToken(username);
-		if (storedRefreshToken == null || !storedRefreshToken.equals(refreshToken)) {
+		if (tokenService.isRefreshTokenValid(username,storedRefreshToken)) {
 			sendErrorResponse(response, HttpStatus.FORBIDDEN, "Invalid or expired refresh token");
 			return;
 		}
@@ -229,7 +240,7 @@ public class AuthenticationServiceImplement implements AuthenticationService {
 	}
 
 
-
+	//Helper method
 	private void sendErrorResponse(HttpServletResponse response, HttpStatus status, String message) throws IOException {
 		response.setStatus(status.value());
 		response.setContentType(MediaType.APPLICATION_JSON_VALUE);
@@ -238,19 +249,17 @@ public class AuthenticationServiceImplement implements AuthenticationService {
 
 
 	@Override
-	public void sendValidationEmail(User user) throws MessagingException {
-		var newCode = emailService.generateAndSaveActivationCode(user);
+	public void sendValidationEmail(String email) throws MessagingException {
+		var newCode = emailService.generateAndSaveActivationCode(email);
 		//sendEmail
 		emailService.sendEmail(
-				user.getEmail(),
-				user.getFullName(),
+				email,
 				EmailTemplateName.ACTIVATE_ACCOUNT,
 				activationUrl,
 				newCode,
 				"Account Activation"
 		);
 	}
-
 
 
 	@Override
@@ -284,7 +293,7 @@ public class AuthenticationServiceImplement implements AuthenticationService {
 		}
 
 		User user = userOpt.get();
-		String resetPasswordCode = emailService.generateAndSaveActivationCode(user);
+		String resetPasswordCode = emailService.generateAndSaveActivationCode(request.getEmail());
 
 		try {
 			emailService.sendOTPToEmail(
@@ -303,20 +312,17 @@ public class AuthenticationServiceImplement implements AuthenticationService {
 
 	@Override
 	public String validateResetCode(ResetPasswordRequest request) throws MessagingException {
-		EmailVerificationCode resetCode=emailCodeRepository.findByCode(request.getCode()).orElse(null);
-		if (resetCode == null) {
+		String storedResetCode=emailService.getEmailCode(request.getEmail());
+		if (storedResetCode == null) {
 			return "Reset code invalid";
 		}
 
-		if (resetCode.isExpired()) {
+		if (emailService.isEmailCodeExpired(request.getEmail())) {
+			emailService.deleteEmailCode(request.getEmail());
 			return "Expired Reset Code";
 		}
 
-		if (resetCode.isValidated()) {
-			return "Reset Code has already been used";
-		}
-		resetCode.validate();
-		emailCodeRepository.save(resetCode);
+		emailService.revokeEmailCode(request.getEmail());
 
 		return "Reset code is valid";
 	}
@@ -324,17 +330,20 @@ public class AuthenticationServiceImplement implements AuthenticationService {
 	@Override
 	@Transactional
 	public String resetPassword(ResetPasswordRequest request) throws MessagingException {
-		EmailVerificationCode resetCode=emailCodeRepository.findByCode(request.getCode()).orElse(null);
-		if(resetCode == null || resetCode.isExpired()){
+		String email=request.getEmail();
+		String storedResetCode=emailService.getEmailCode(email);
+		if(storedResetCode == null || !emailService.isEmailCodeMatch(email,request.getCode())){
 			return  "Invalid or expired reset code";
 		}
-		User user=resetCode.getUser();
+
+		User user = userRepository.findByEmail(email)
+				.orElseThrow(() -> new UsernameNotFoundException("User not found"));
+
 		String encodedPassword = passwordEncoder.encode(request.getNewPassword());
 		user.setPassword(encodedPassword);
 		userRepository.save(user);
 
-		resetCode.validate();
-		emailCodeRepository.save(resetCode);
+		emailService.deleteEmailCode(email);
 
 		return "Password reset successfully";
 	}
@@ -406,7 +415,7 @@ public class AuthenticationServiceImplement implements AuthenticationService {
 		var jwtToken = jwtService.generateToken(claims, user);
 		var refreshToken = jwtService.generateRefreshToken(user);
 
-// Ghi đè cookie mới
+		// Ghi đè cookie mới
 		cookieService.addCookie(response, "access_token", jwtToken, null);
 		cookieService.addCookie(response, "refresh_token", refreshToken, null);
 
@@ -424,7 +433,7 @@ public class AuthenticationServiceImplement implements AuthenticationService {
 	public String verifyOtpByMail(String username) {
 		User user=userRepository.findByUsername(username)
 				.orElseThrow(()-> new UsernameNotFoundException("Username not found with "+username));
-		String otpCode = emailService.generateAndSaveActivationCode(user);
+		String otpCode = emailService.generateAndSaveActivationCode(user.getEmail());
 
 		try {
 			emailService.sendOTPToEmail(
@@ -447,19 +456,22 @@ public class AuthenticationServiceImplement implements AuthenticationService {
 		User user = userRepository.findByUsername(request.getUsername())
 				.orElseThrow(() -> new UsernameNotFoundException("Username not found: " + request.getUsername()));
 
-		EmailVerificationCode otp = emailCodeRepository.findByCode(request.getCode())
-				.orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid OTP TFA"));
+		String storedOtp=emailService.getEmailCode(user.getEmail());
 
-		if (otp.isExpired()) {
-			throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Expired OTP TFA");
+		if (storedOtp == null) {
+			throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid OTP TFA");
 		}
 
-		if (otp.isValidated()) {
-			throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "OTP TFA has already been used");
+
+		if (emailService.isEmailCodeExpired(user.getEmail())) {
+			throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "OTP TFA has already expired");
 		}
 
-		otp.validate();
-		emailCodeRepository.save(otp);
+		if (!emailService.isEmailCodeMatch(user.getEmail(), request.getCode())) {
+			throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "OTP invalid");
+		}
+
+		emailService.deleteEmailCode(user.getEmail());
 
 		// Xóa Refresh Token cũ trước khi tạo mới
 		tokenService.revokeRefreshToken(user.getUsername());

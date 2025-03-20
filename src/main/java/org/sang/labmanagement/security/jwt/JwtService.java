@@ -13,6 +13,7 @@ import java.util.function.Function;
 import javax.crypto.SecretKey;
 import lombok.RequiredArgsConstructor;
 import org.sang.labmanagement.redis.BaseRedisServiceImpl;
+import org.sang.labmanagement.security.token.TokenService;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Service;
@@ -21,7 +22,7 @@ import org.springframework.stereotype.Service;
 @RequiredArgsConstructor
 public class JwtService {
 
-	private final BaseRedisServiceImpl<String> redisService;
+	private final TokenService tokenService;
 
 	@Value("${application.security.jwt.expiration}")
 	private long jwtExpiration;
@@ -31,6 +32,7 @@ public class JwtService {
 
 	@Value("${application.security.jwt.refresh-token.expiration}")
 	private long refreshExpiration;
+
 
 	public String generateToken(UserDetails userDetails) {
 		return generateToken(new HashMap<>(), userDetails);
@@ -43,7 +45,7 @@ public class JwtService {
 			UserDetails userDetails
 	) {
 		String refreshToken=buildToken(new HashMap<>(), userDetails, refreshExpiration);
-		redisService.setWithExpiration("refresh_token:" + userDetails.getUsername(), refreshToken, refreshExpiration);
+		tokenService.saveRefreshToken(userDetails.getUsername(),refreshToken);
 
 		return refreshToken;
 	}
@@ -64,7 +66,7 @@ public class JwtService {
 		final String username = extractUsername(token);
 
 
-		if (redisService.get("blacklist:" + token) != null) {
+		if (tokenService.getBlackListAccess(token) || tokenService.getBlackListRefresh(token)) {
 			return false; // Token đã bị thu hồi
 		}
 

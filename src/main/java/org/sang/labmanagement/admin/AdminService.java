@@ -1,5 +1,9 @@
 package org.sang.labmanagement.admin;
 
+import java.time.Instant;
+import java.time.LocalDateTime;
+import java.time.temporal.ChronoUnit;
+import java.util.List;
 import java.util.Optional;
 import lombok.RequiredArgsConstructor;
 import org.sang.labmanagement.common.PageResponse;
@@ -17,6 +21,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -162,5 +167,17 @@ public class AdminService {
 		userRepository.delete(userToDelete);
 		return userToDelete;
 	}
+
+	@Scheduled(fixedRate = 86400000) // 24 giờ
+	public void removeUnverifiedAccounts() {
+		LocalDateTime expirationTime = LocalDateTime.now().minusHours(24);
+		List<User> unverifiedUsers = userRepository.findUnverifiedUsersBefore(expirationTime);
+
+		for (User user : unverifiedUsers) {
+			userRepository.delete(user);
+			System.out.println("Deleted unverified account: " + user.getEmail());
+		}
+	}
+
 
 }

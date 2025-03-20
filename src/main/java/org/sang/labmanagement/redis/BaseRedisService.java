@@ -11,6 +11,8 @@ public interface BaseRedisService<T>{
 	boolean exists(String key);
 	void delete(String key);
 
+	Long getTTL(String key);
+
 	// Hash Operations
 	void hashSet(String key, String field, T value);
 	boolean hashExists(String key, String field);

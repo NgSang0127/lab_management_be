@@ -27,8 +27,10 @@ public class TokenService {
 		return redisService.get("refresh_token:" + username);
 	}
 
+
+
 	public boolean isRefreshTokenValid(String username, String refreshToken) {
-		String storedToken = redisService.get("refresh_token:" + username);
+		String storedToken = getRefreshToken(username);
 		return storedToken != null && storedToken.equals(refreshToken);
 	}
 
@@ -41,11 +43,13 @@ public class TokenService {
 	}
 
 
-	public boolean isRefreshTokenRevoked(String refreshToken) {
-		return redisService.get("blacklist:refresh:" + refreshToken) != null;
+	public boolean getBlackListAccess(String token) {
+		return redisService.get("blacklist:access:" + token) != null;
 	}
 
-
+	public boolean getBlackListRefresh(String token) {
+		return redisService.get("blacklist:refresh:" + token) != null;
+	}
 
 
 

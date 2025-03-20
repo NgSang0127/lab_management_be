@@ -59,10 +59,11 @@ public class AuthController {
 
 	@GetMapping("/activate-account")
 	public void activateAccount(
+			@RequestParam("email") String email,
 			@RequestParam("code") String code,
 			HttpServletResponse response) throws IOException {
 		try {
-			authService.activateAccount(code);
+			authService.activateAccount(code,email);
 			// Redirect to the frontend success page
 			response.sendRedirect(successUrl);
 		} catch (RuntimeException | MessagingException e) {

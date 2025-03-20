@@ -85,18 +85,24 @@
 <body>
 <div class="container">
     <div class="header">
-        <img th:src="@{/image/logo.png}" alt="Lab Management HCMIU">
+        <img src="https://res.cloudinary.com/dsboloq8v/image/upload/v1742473811/logo_hwruel.png"  alt="Lab Management HCMIU">
     </div>
 
-    <h1>Activate Your Account</h1>
-    <p class="greeting" th:text="'Hello ' + ${username} + ','"></p>
-    <p>Thank you for signing up! Use the code below to activate your account:</p>
+    <h1>Confirm Your Email Address</h1>
+    <p class="greeting" th:text="'Dear ' + ${email} + ','"></p>
+    <p>We are delighted to have you on board! To complete your account registration, please verify your email address by using the activation code below:</p>
+
     <div class="activation-code" th:text="${activation_code}"></div>
+
+    <p>Alternatively, you can activate your account by clicking the button below:</p>
     <div class="activation-link">
-        <a th:href="@{${confirmationUrl}(code=${activation_code})}">Activate your account</a>
+        <a th:href="@{${confirmationUrl}(code=${activation_code}, email=${email})}">Activate Your Account</a>
     </div>
+
+    <p>If you did not sign up for this account, please disregard this email.</p>
+
     <div class="footer">
-        <p>If you didn’t request this email, please ignore it.</p>
+        <p>Best regards,<br>Lab Management HCMIU Team</p>
     </div>
 </div>
 </body>

@@ -8,7 +8,9 @@ import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.Map;
 import lombok.RequiredArgsConstructor;
+import org.sang.labmanagement.redis.BaseRedisServiceImpl;
 import org.sang.labmanagement.user.User;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.scheduling.annotation.Async;
@@ -21,13 +23,45 @@ import org.thymeleaf.spring6.SpringTemplateEngine;
 public class EmailService {
 	private final JavaMailSender mailSender;
 	private final SpringTemplateEngine templateEngine;
-	private final EmailVerificationRepository emailVerificationRepository;
+	private final BaseRedisServiceImpl<String> redisService;
+
+	@Value("${application.mailing.expiration}")
+	private long codeExpiration;
+
+	public void saveEmailCode(String email,String code){
+		deleteEmailCode(email);
+		redisService.setWithExpiration("email_verification:" +email,code,codeExpiration);
+	}
+
+	public String getEmailCode(String email){
+		return redisService.get("email_verification:" +email);
+	}
+
+	public boolean isEmailCodeMatch(String email,String code){
+		String storedCode=getEmailCode(email);
+		return storedCode != null && storedCode.equals(code);
+	}
+
+	public void deleteEmailCode(String email){
+		redisService.delete("email_verification:" +email);
+	}
+
+	public void revokeEmailCode(String email){
+		redisService.delete("email_verification:" +email);
+	}
+
+	public boolean isEmailCodeExpired(String email) {
+		Long ttl = redisService.getTTL("email_verification:" + email);
+
+		return ttl == null || ttl == -2;
+	}
 
 
-	@Async//public mới duoc proxy quản lý trong spring AOP
+	//Send email
+
+	@Async
 	public void sendEmail(
 			String to,
-			String username,
 			EmailTemplateName emailTemplate,
 			String confirmationUrl,
 			String activationCode,
@@ -47,22 +81,16 @@ public class EmailService {
 				StandardCharsets.UTF_8.name()
 		);
 		Map<String,Object>properties= new HashMap<String,Object>();
-		properties.put("username",username);
 		properties.put("confirmationUrl",confirmationUrl);
 		properties.put("activation_code",activationCode);
+		properties.put("email",to);
 
 		createContextEmail(to, subject, templateName, mimeMessage, helper, properties);
 	}
 
-	public String generateAndSaveActivationCode(User user){
+	public String generateAndSaveActivationCode(String email){
 		String generateCodeEmail=generateActivateCode(6);
-		var code=EmailVerificationCode.builder()
-				.code(generateCodeEmail)
-				.createdAt(LocalDateTime.now())
-				.expiresAt(LocalDateTime.now().plusMinutes(15))
-				.user(user)
-				.build();
-		emailVerificationRepository.save(code);
+		saveEmailCode(email,generateCodeEmail);
 		return generateCodeEmail;
 	}
 

@@ -86,4 +86,10 @@ public class BaseRedisServiceImpl<T> implements BaseRedisService<T> {
 	public Set<String> scanKeys(String pattern) {
 		return redisTemplate.keys(pattern);
 	}
+
+	@Override
+	public Long getTTL(String key) {
+		return redisTemplate.getExpire(key, TimeUnit.SECONDS);
+	}
+
 }
