@@ -3,7 +3,7 @@ name: LabManagement Backend Pipeline
 on:
   push:
     branches:
-      - ci/pipeline
+      - master
     paths:
       - '**/*.java'
       - 'Dockerfile'
