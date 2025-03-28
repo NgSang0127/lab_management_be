@@ -1,0 +1,130 @@
+services:
+  mysql:
+    image: mysql:8.0.38
+    container_name: mysql-lab
+    ports:
+      - "3308:3306"
+    environment:
+      MYSQL_USER: "sang"
+      MYSQL_PASSWORD: "0966420942"
+      MYSQL_ROOT_PASSWORD: "0966420942"
+      MYSQL_DATABASE: lab_management
+    volumes:
+      - mysql_data:/var/lib/mysql
+    networks:
+      - lab-management-network
+    restart: unless-stopped
+
+  mail-dev:
+    image: maildev/maildev
+    container_name: mail-dev-lab
+    ports:
+      - "1025:1025"
+      - "1080:1080"
+
+
+  redis:
+    image: redis:latest
+    container_name: redis_cache
+    ports:
+      - "6379:6379"
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - redis_data:/data
+    networks:
+      - lab-management-network
+
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.16.5
+    container_name: elasticsearch
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=false #turn off security for dev mode
+    ports:
+      - "9200:9200"
+    volumes:
+      - elasticsearch_data:/usr/share/elasticsearch/data
+    networks:
+      - lab-management-network
+
+  logstash:
+    image: docker.elastic.co/logstash/logstash:8.16.5
+    container_name: logstash
+    ports:
+      - "5044:5044"
+      - "9600:9600"
+    environment:
+      - XPACK_MONITORING_ENABLED=false
+    volumes:
+      - ./logstash/config/logstash.yml:/usr/share/logstash/config/logstash.yml
+      - ./logstash/pipeline:/usr/share/logstash/pipeline:ro
+    depends_on:
+      - elasticsearch
+    networks:
+      - lab-management-network
+
+  kibana:
+    image: docker.elastic.co/kibana/kibana:8.16.5
+    container_name: kibana
+    ports:
+      - "5601:5601"
+    environment:
+      ELASTICSEARCH_URL: http://elasticsearch:9200
+      ELASTICSEARCH_HOSTS: '["http://elasticsearch:9200"]'
+    depends_on:
+      - elasticsearch
+    networks:
+      - lab-management-network
+
+  filebeat:
+    image: docker.elastic.co/beats/filebeat:8.16.5
+    container_name: filebeat
+    command: filebeat -e -strict.perms=false
+    volumes:
+      - springboot-logs:/logs:ro
+      - ./filebeat/filebeat.yml:/usr/share/filebeat/filebeat.yml:ro  # Gắn file cấu hình
+    networks:
+      - lab-management-network  # Kết nối với mạng chung
+    depends_on:
+      - logstash
+      - springboot-app
+    user: root
+
+
+  springboot-app:
+    container_name: lab_management
+    image: lab/lab:0.0.1-SNAPSHOT
+    volumes:
+      - springboot-logs:/logs
+    ports:
+      - "8080:8080"
+    networks:
+      - lab-management-network
+    depends_on:
+      - mysql
+      - redis
+      - logstash
+
+  vite-typescript-app:
+    container_name: lab_management_ui
+    image: lab/lab-ui:0.0.1-SNAPSHOT
+    ports:
+      - "5173:80"
+    networks:
+      - lab-management-network
+    depends_on:
+      - springboot-app
+
+
+volumes:
+  mysql_data:
+    driver: local
+  redis_data:
+    driver: local
+  elasticsearch_data:
+    driver: local
+  springboot-logs:
+
+networks:
+  lab-management-network:
+    driver: bridge

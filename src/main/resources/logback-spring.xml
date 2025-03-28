@@ -1,38 +1,27 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <configuration>
+  <include resource="org/springframework/boot/logging/logback/base.xml"/>
 
-  <!-- Định nghĩa pattern cho log -->
-  <property name="LOG_PATTERN" value="%d{dd/MM/yyyy HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n"/>
-
-  <!-- Appender cho Console -->
-  <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+  <!-- Appender cho console -->
+  <appender name="console" class="ch.qos.logback.core.ConsoleAppender">
     <encoder>
-      <pattern>${LOG_PATTERN}</pattern>
+      <pattern>%d{dd/MM/yyyy HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n</pattern>
     </encoder>
   </appender>
 
-  <!-- Appender cho Audit Logs (Ghi vào file audit.log) -->
-  <appender name="AUDIT_FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
-    <file>logs/audit.log</file>
-    <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
-      <!-- Quay vòng log hàng ngày -->
-      <fileNamePattern>logs/audit.%d{dd/MM/yyyy}.log</fileNamePattern>
-      <!-- Giữ lại 30 ngày log -->
-      <maxHistory>30</maxHistory>
-    </rollingPolicy>
+  <!-- Appender cho file -->
+  <appender name="file" class="ch.qos.logback.core.FileAppender">
+    <file>/logs/spring-boot-app.log</file>
+    <append>true</append>
     <encoder>
-      <pattern>%d{yyyy-MM-dd HH:mm:ss} [AUDIT] %-5level [%X{username}] %msg%n</pattern>
+      <pattern>%d{dd/MM/yyyy HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n</pattern>
     </encoder>
   </appender>
 
-  <!-- Logger cho Audit Logs -->
-  <logger name="AUDIT" level="INFO" additivity="false">
-    <appender-ref ref="AUDIT_FILE" />
-  </logger>
-
-  <!-- Root Logger -->
-  <root level="INFO">
-    <appender-ref ref="CONSOLE" />
+  <!-- Root logger -->
+  <root level="info">
+    <appender-ref ref="console" />
+    <appender-ref ref="file" />
+    <!-- <appender-ref ref="logstash" /> --> <!-- Giữ comment nếu không gửi trực tiếp tới Logstash -->
   </root>
-
 </configuration>

@@ -1,0 +1,16 @@
+filebeat.inputs:
+  - type: log
+    paths:
+      - /logs/spring-boot-app.log
+    fields:
+      app: springboot
+    #fields_under_root: true
+    #multiline.pattern: '^{'
+
+    #multiline.negate: true
+    #multiline.match: after
+
+output.logstash:
+  hosts: ["localhost:5044","logstash:5044"]
+
+logging.level: info

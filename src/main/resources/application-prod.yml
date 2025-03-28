@@ -1,0 +1,76 @@
+spring:
+  datasource:
+    url: jdbc:mysql://${MYSQL_HOST:localhost}:3308/lab_management?serverTimezone=Asia/Ho_Chi_Minh
+    username: root
+    password: 0966420942
+    driver-class-name: com.mysql.cj.jdbc.Driver
+  data:
+    redis:
+      repositories:
+        enabled: false
+      host: redis_cache
+      port: 6379
+      database: 0
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: true
+    database: mysql
+    properties:
+      hibernate:
+        #        format_sql: true
+        jdbc:
+          time_zone: Asia/Ho_Chi_Minh  #VietNam
+          use_fractional_seconds: true
+        dialect: org.hibernate.dialect.MySQLDialect  # Sử dụng dialect hỗ trợ MySQL 8+ với microseconds
+  jackson:
+    date-format: "dd/MM/yyyy"
+    serialization:
+      write-dates-as-timestamps: true
+  mail:
+    host: ${EMAIL_HOSTNAME}
+    port: 587
+    username: ${EMAIL_USERNAME}
+    password: ${EMAIL_PASSWORD}
+    properties:
+      mail:
+        smtp:
+          starttls:
+            enabled: true
+            required: true
+          auth: true
+      protocol: smtp
+  cache:
+    type: redis
+  thymeleaf:
+    cache: false
+    prefix: classpath:/templates/
+    suffix: .html
+    mode: HTML
+application:
+  security:
+    jwt:
+      secret-key: 404E635266426A586E3272357538782F213F4428472B4B6250645367566B5920
+      expiration: 8640000 # a day
+      refresh-token:
+        expiration: 604800000 #7 days
+  cors:
+    origins: "http://localhost:5173,http://localhost:5174"
+  mailing:
+    expiration: 300000 # 5 minutes
+    backend:
+      activation-url: http://localhost:8080/api/v1/auth/activate-account
+    success-url: http://localhost:5173/success?activated=true
+    error-url: http://localhost:5173/error?message=
+logging:
+  level:
+    root: INFO
+    #com.example: DEBUG
+    #org.hibernate.SQL: DEBUG
+    org.springframework.cache: TRACE
+    #org.springframework.data.redis: DEBUG
+  file:
+    name: logs/spring-boot-app.log
+
+server:
+  port: 8080
