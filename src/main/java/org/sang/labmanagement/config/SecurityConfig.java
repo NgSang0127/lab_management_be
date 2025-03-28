@@ -1,14 +1,13 @@
 package org.sang.labmanagement.config;
 
-import static org.springframework.security.config.Customizer.withDefaults;
-
-import jakarta.servlet.http.HttpServletRequest;
-import java.util.Collections;
+import java.util.Arrays;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.sang.labmanagement.security.jwt.JwtFilter;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpHeaders;
 import org.springframework.security.authentication.AuthenticationProvider;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
@@ -31,6 +30,10 @@ public class SecurityConfig {
 	private final JwtFilter jwtFilter;
 	private final AuthenticationProvider authenticationProvider;
 	private final LogoutHandler logoutHandler;
+
+	@Value("${application.cors.origins}")
+	private String corsOrigins;
+
 
 	@Bean
 	public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
@@ -60,19 +63,15 @@ public class SecurityConfig {
 	private CorsConfigurationSource corsConfigurationSource() {
 		return request -> {
 			CorsConfiguration corsConfig = new CorsConfiguration();
-			corsConfig.setAllowedOrigins(List.of("http://localhost:5173", "http://localhost:5174","http://localhost"
-					+ ":3000"));
+			List<String> allowedOrigins = Arrays.asList(corsOrigins.split(","));
+			corsConfig.setAllowedOrigins(allowedOrigins);
 
-			// Cho phép các phương thức HTTP
 			corsConfig.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
 
-			// Cho phép gửi các headers cần thiết
 			corsConfig.setAllowedHeaders(List.of("Authorization", "Content-Type"));
 
-			// Expose headers để frontend có thể đọc
 			corsConfig.setExposedHeaders(List.of("Authorization", "Content-Disposition"));
 
-			// Nếu có gửi cookie hoặc token trong request
 			corsConfig.setAllowCredentials(true);
 
 			// CORS cache trong 1 giờ

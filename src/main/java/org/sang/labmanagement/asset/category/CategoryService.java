@@ -2,6 +2,8 @@ package org.sang.labmanagement.asset.category;
 
 import lombok.RequiredArgsConstructor;
 import org.sang.labmanagement.common.PageResponse;
+import org.sang.labmanagement.exception.ResourceAlreadyExistsException;
+import org.sang.labmanagement.exception.ResourceNotFoundException;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.data.domain.Page;
@@ -33,7 +35,7 @@ public class CategoryService {
 	@CacheEvict(value = "categories", allEntries = true)
 	public Category createCategory(Category category){
 		if(categoryRepository.existsByName(category.getName())){
-			throw new RuntimeException("Category already exists with name :"+category.getName());
+			throw new ResourceAlreadyExistsException("Category already exists with name :"+category.getName());
 		};
 		return categoryRepository.save(category);
 	}
@@ -41,7 +43,7 @@ public class CategoryService {
 	@Cacheable(value = "category" ,key="#id")
 	public Category getCategoryById(Long id) {
 		return categoryRepository.findById(id)
-				.orElseThrow(() -> new RuntimeException("Category not found with id: " + id));
+				.orElseThrow(() -> new ResourceNotFoundException("Category not found with id: " + id));
 	}
 
 	@CacheEvict(value = {"category", "categories"}, key = "#id", allEntries = true)

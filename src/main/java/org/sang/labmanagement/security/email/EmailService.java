@@ -28,10 +28,15 @@ public class EmailService {
 	@Value("${application.mailing.expiration}")
 	private long codeExpiration;
 
-	public void saveEmailCode(String email,String code){
-		deleteEmailCode(email);
-		redisService.setWithExpiration("email_verification:" +email,code,codeExpiration);
+	public void saveEmailCode(String email, String code) {
+		String existingCode = redisService.get("email_verification:" + email);
+		if (existingCode != null) {
+			deleteEmailCode(email);
+		}
+
+		redisService.setWithExpiration("email_verification:" + email, code, codeExpiration);
 	}
+
 
 	public String getEmailCode(String email){
 		return redisService.get("email_verification:" +email);
@@ -69,9 +74,9 @@ public class EmailService {
 	) throws MessagingException {
 		String templateName;
 		if(emailTemplate == null){
-			templateName="confirm-email";
+			templateName="activate_account";
 		}else{
-			templateName = emailTemplate.name();
+			templateName = emailTemplate.getName();
 		}
 
 		MimeMessage mimeMessage= mailSender.createMimeMessage();
@@ -111,7 +116,8 @@ public class EmailService {
 			String to, String username,EmailTemplateName emailTemplate, String subject,
 			Long assetId, String assetName,
 			String scheduledDate, String remarks) throws MessagingException {
-		String templateName=emailTemplate.name();
+		String templateName = (emailTemplate != null) ? emailTemplate.getName() : "maintenance_scheduler"; // fallback
+		// template
 		MimeMessage mimeMessage= mailSender.createMimeMessage();
 		MimeMessageHelper helper=new MimeMessageHelper(
 				mimeMessage,
@@ -149,7 +155,7 @@ public class EmailService {
 			String activationCode,
 			String subject)
 			throws MessagingException {
-		String templateName=emailTemplate.name();
+		String templateName=emailTemplate.getName();
 		MimeMessage mimeMessage= mailSender.createMimeMessage();
 		MimeMessageHelper helper=new MimeMessageHelper(
 				mimeMessage,

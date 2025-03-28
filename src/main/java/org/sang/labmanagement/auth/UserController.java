@@ -8,6 +8,7 @@ import org.sang.labmanagement.auth.request.ChangePasswordRequest;
 import org.sang.labmanagement.auth.request.UpdateInformationUser;
 import org.sang.labmanagement.tfa.TwoFactorAuthenticationService;
 import org.sang.labmanagement.user.User;
+import org.sang.labmanagement.utils.LogExecution;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
@@ -24,7 +25,13 @@ public class UserController {
 	private final AuthenticationService authService;
 	private final TwoFactorAuthenticationService twoFactorAuthenticationService;
 
+
+
+
+
+
 	@GetMapping("/profile")
+	@LogExecution
 	public ResponseEntity<User> findUserByJwt(Authentication authenticatedUser) {
 		return ResponseEntity.of(Optional.ofNullable(authService.findUser(authenticatedUser)));
 	}

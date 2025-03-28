@@ -16,6 +16,7 @@ import org.sang.labmanagement.auth.request.VerificationRequest;
 import org.sang.labmanagement.auth.response.AuthenticationResponse;
 import org.sang.labmanagement.user.UserDetailsServiceImplement;
 import org.sang.labmanagement.user.UserRepository;
+import org.sang.labmanagement.utils.LogExecution;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
@@ -42,6 +43,7 @@ public class AuthController {
 
 
 	@PostMapping("/register")
+	@LogExecution
 	public ResponseEntity<AuthenticationResponse> register(
 			@Valid @RequestBody RegistrationRequest request
 	) throws MessagingException {
@@ -49,6 +51,7 @@ public class AuthController {
 	}
 
 	@PostMapping("/login")
+	@LogExecution
 	public ResponseEntity<AuthenticationResponse> login(
 			@RequestBody LoginRequest request,
 			HttpServletResponse response

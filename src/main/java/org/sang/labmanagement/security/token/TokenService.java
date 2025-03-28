@@ -2,12 +2,14 @@ package org.sang.labmanagement.security.token;
 
 import java.time.LocalDateTime;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.sang.labmanagement.redis.BaseRedisServiceImpl;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
 @Service
+@Slf4j
 @RequiredArgsConstructor
 public class TokenService {
 	private final BaseRedisServiceImpl<String> redisService;
@@ -28,11 +30,11 @@ public class TokenService {
 	}
 
 
-
 	public boolean isRefreshTokenValid(String username, String refreshToken) {
 		String storedToken = getRefreshToken(username);
 		return storedToken != null && storedToken.equals(refreshToken);
 	}
+
 
 	public void deleteRefreshToken(String username) {
 		redisService.delete("refresh_token:" + username);

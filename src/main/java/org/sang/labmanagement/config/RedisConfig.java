@@ -1,6 +1,6 @@
 package org.sang.labmanagement.config;
 
-import org.hibernate.Session;
+import java.time.Duration;
 import org.springframework.cache.CacheManager;
 import org.springframework.cache.annotation.EnableCaching;
 import org.springframework.context.annotation.Bean;
@@ -26,6 +26,7 @@ public class RedisConfig {
 	@Bean
 	public RedisCacheConfiguration redisCacheConfiguration() {
 		return RedisCacheConfiguration.defaultCacheConfig()
+				.entryTtl(Duration.ofHours(1)) // TTL là 1 hour
 				.serializeKeysWith(RedisSerializationContext.SerializationPair.fromSerializer(new StringRedisSerializer()))
 				.serializeValuesWith(RedisSerializationContext.SerializationPair.fromSerializer(redisSerializer()));
 	}

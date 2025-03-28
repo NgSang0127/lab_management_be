@@ -19,6 +19,10 @@ import org.sang.labmanagement.auth.response.AuthenticationResponse;
 import org.sang.labmanagement.auth.request.LoginRequest;
 import org.sang.labmanagement.auth.request.RegistrationRequest;
 import org.sang.labmanagement.cookie.CookieService;
+import org.sang.labmanagement.exception.AccountAlreadyActivatedException;
+import org.sang.labmanagement.exception.EmailCodeException;
+import org.sang.labmanagement.exception.QRCodeException;
+import org.sang.labmanagement.exception.TokenException;
 import org.sang.labmanagement.redis.BaseRedisServiceImpl;
 import org.sang.labmanagement.security.email.EmailService;
 import org.sang.labmanagement.security.email.EmailTemplateName;
@@ -29,9 +33,12 @@ import org.sang.labmanagement.user.Role;
 import org.sang.labmanagement.user.User;
 import org.sang.labmanagement.user.UserRepository;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.authentication.BadCredentialsException;
+import org.springframework.security.authentication.LockedException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
@@ -113,6 +120,10 @@ public class AuthenticationServiceImplement implements AuthenticationService {
 		);
 		var user = ((User) auth.getPrincipal());
 
+		if (user.isAccountLocked()) {
+			throw new LockedException("User account is locked");
+		}
+
 		// Nếu bật TFA, chưa trả về cookie vội
 		if (user.isTwoFactorEnabled()) {
 			String secret = user.getSecret();
@@ -153,22 +164,22 @@ public class AuthenticationServiceImplement implements AuthenticationService {
 		String storedCode=emailService.getEmailCode(email);
 
 		if (storedCode == null) {
-			throw new RuntimeException("The code is incorrect or has expired");
+			throw new EmailCodeException("The code is incorrect or has expired");
 		}
 
 		// Kiểm tra xem mã đã hết hạn chưa
 		if (emailService.isEmailCodeExpired(email)) {
 			emailService.revokeEmailCode(email);
 			sendValidationEmail(email);
-			throw new RuntimeException("The activation code has expired. A new code has been sent to your email.");
+			throw new EmailCodeException("The activation code has expired. A new code has been sent to your email.");
 		}
 
 
 		User user = userRepository.findByEmail(email)
-				.orElseThrow(() -> new UsernameNotFoundException("User not found"));
+				.orElseThrow(() -> new UsernameNotFoundException("User not found with email: "+email));
 
 		if (user.isEnabled()) {
-			throw new RuntimeException("This account is already activated.");
+			throw new AccountAlreadyActivatedException("This account is already activated.");
 		}
 
 		user.setEnabled(true);
@@ -185,14 +196,12 @@ public class AuthenticationServiceImplement implements AuthenticationService {
 		String username;
 		String refreshToken = cookieService.getCookieValue(request, "refresh_token");
 		if (refreshToken == null) {
-			sendErrorResponse(response, HttpStatus.UNAUTHORIZED, "Missing refresh token");
-			return;
+			throw new TokenException("Missing refresh token");
 		}
 		username = jwtService.extractUsername(refreshToken);
 
 		if (username == null) {
-			sendErrorResponse(response, HttpStatus.UNAUTHORIZED, "Username not found");
-			return;
+			throw new UsernameNotFoundException("Username not found with username extract jwt: "+ null);
 		}
 
 		var user = userRepository.findByUsername(username).orElseThrow(
@@ -200,18 +209,15 @@ public class AuthenticationServiceImplement implements AuthenticationService {
 		);
 
 
-
 		// Kiểm tra xem Refresh Token có bị thu hồi không
 		if (redisService.get("blacklist:refresh:" + refreshToken) != null) {
-			sendErrorResponse(response, HttpStatus.FORBIDDEN, "Refresh token is revoked");
-			return;
+			throw new TokenException("Refresh token is revoked");
 		}
 
 
 		String storedRefreshToken = tokenService.getRefreshToken(username);
-		if (tokenService.isRefreshTokenValid(username,storedRefreshToken)) {
-			sendErrorResponse(response, HttpStatus.FORBIDDEN, "Invalid or expired refresh token");
-			return;
+		if (!tokenService.isRefreshTokenValid(username,storedRefreshToken)) {
+			throw new TokenException("Invalid or expired refresh token");
 		}
 
 		if (jwtService.isTokenValid(refreshToken, user)) {
@@ -235,23 +241,14 @@ public class AuthenticationServiceImplement implements AuthenticationService {
 			response.setContentType(MediaType.APPLICATION_JSON_VALUE);
 			new ObjectMapper().writeValue(response.getOutputStream(), authResponse);
 		} else {
-			sendErrorResponse(response, HttpStatus.FORBIDDEN, "Invalid refresh token");
+			throw new TokenException("Invalid refresh token");
 		}
-	}
-
-
-	//Helper method
-	private void sendErrorResponse(HttpServletResponse response, HttpStatus status, String message) throws IOException {
-		response.setStatus(status.value());
-		response.setContentType(MediaType.APPLICATION_JSON_VALUE);
-		new ObjectMapper().writeValue(response.getOutputStream(), Map.of("error", message));
 	}
 
 
 	@Override
 	public void sendValidationEmail(String email) throws MessagingException {
 		var newCode = emailService.generateAndSaveActivationCode(email);
-		//sendEmail
 		emailService.sendEmail(
 				email,
 				EmailTemplateName.ACTIVATE_ACCOUNT,
@@ -337,7 +334,7 @@ public class AuthenticationServiceImplement implements AuthenticationService {
 		}
 
 		User user = userRepository.findByEmail(email)
-				.orElseThrow(() -> new UsernameNotFoundException("User not found"));
+				.orElseThrow(() -> new UsernameNotFoundException("User not found with email: "+email));
 
 		String encodedPassword = passwordEncoder.encode(request.getNewPassword());
 		user.setPassword(encodedPassword);
@@ -403,7 +400,7 @@ public class AuthenticationServiceImplement implements AuthenticationService {
 
 		boolean isValidOtp = twoFactorAuthenticationService.isOtpValid(user.getSecret(), otpCode);
 		if (!isValidOtp) {
-			throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Invalid OTP code.");
+			throw new QRCodeException("Invalid OTP code by QR");
 		}
 
 		// Xóa Refresh Token cũ trước khi tạo mới
@@ -449,31 +446,29 @@ public class AuthenticationServiceImplement implements AuthenticationService {
 
 		return "A two factor authentication code has been sent to your email!";
 	}
-
 	@Override
 	@Transactional
-	public AuthenticationResponse verifyTFAEmail(VerificationRequest request,HttpServletResponse response) {
+	public AuthenticationResponse verifyTFAEmail(VerificationRequest request, HttpServletResponse response) {
 		User user = userRepository.findByUsername(request.getUsername())
 				.orElseThrow(() -> new UsernameNotFoundException("Username not found: " + request.getUsername()));
 
-		String storedOtp=emailService.getEmailCode(user.getEmail());
+		String storedOtp = emailService.getEmailCode(user.getEmail());
 
 		if (storedOtp == null) {
-			throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid OTP TFA");
+			throw new EmailCodeException("Invalid OTP TFA");
 		}
 
-
 		if (emailService.isEmailCodeExpired(user.getEmail())) {
-			throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "OTP TFA has already expired");
+			throw new EmailCodeException("OTP TFA has already expired");
 		}
 
 		if (!emailService.isEmailCodeMatch(user.getEmail(), request.getCode())) {
-			throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "OTP invalid");
+			throw new EmailCodeException("OTP invalid");
 		}
 
+		// ✅ Chỉ xóa OTP sau khi xác thực thành công
 		emailService.deleteEmailCode(user.getEmail());
 
-		// Xóa Refresh Token cũ trước khi tạo mới
 		tokenService.revokeRefreshToken(user.getUsername());
 
 		var claims = new HashMap<String, Object>();
@@ -483,8 +478,7 @@ public class AuthenticationServiceImplement implements AuthenticationService {
 		var refreshToken = jwtService.generateRefreshToken(user);
 
 		cookieService.addCookie(response, "access_token", jwtToken, null);
-		cookieService.addCookie(response, "refresh_token", refreshToken,null);
-
+		cookieService.addCookie(response, "refresh_token", refreshToken, null);
 
 		return AuthenticationResponse.builder()
 				.accessToken(jwtToken)
@@ -492,6 +486,7 @@ public class AuthenticationServiceImplement implements AuthenticationService {
 				.refreshToken(refreshToken)
 				.build();
 	}
+
 
 
 }

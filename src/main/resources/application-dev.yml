@@ -17,7 +17,7 @@ spring:
     database: mysql
     properties:
       hibernate:
-#        format_sql: true
+        #        format_sql: true
         jdbc:
           time_zone: Asia/Ho_Chi_Minh  #VietNam
           use_fractional_seconds: true
@@ -41,13 +41,21 @@ spring:
         connection timeout: 5000
         timeout: 3000
         write-timeout: 5000
+  cache:
+    type: redis
+  thymeleaf:
+    cache: false
+    prefix: classpath:/templates/
+    suffix: .html
 application:
   security:
     jwt:
-      secret-key: 404E635266426A586E3272357538782F213F4428472B4B6250645367566B5920
+      secret-key: ${JWT_SECRET_KEY}
       expiration: 8640000 # a day
       refresh-token:
         expiration: 604800000 #7 days
+  cors:
+    origins: "http://localhost:5173,http://localhost:5174"
   mailing:
     expiration: 300 # 5 minutes
     backend:

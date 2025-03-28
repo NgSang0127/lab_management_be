@@ -87,7 +87,7 @@ public class NotificationService {
 
 
 	public void sendNotificationToAll(Notification notification) {
-		System.out.println("🔔 Sending notification: " + notification.getTitle());
+		System.out.println("Sending notification: " + notification.getTitle());
 		messagingTemplate.convertAndSend("/topic/notification", notification);
 	}
 

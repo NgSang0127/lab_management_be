@@ -2,6 +2,8 @@ package org.sang.labmanagement.asset.location;
 
 import lombok.RequiredArgsConstructor;
 import org.sang.labmanagement.common.PageResponse;
+import org.sang.labmanagement.exception.ResourceAlreadyExistsException;
+import org.sang.labmanagement.exception.ResourceNotFoundException;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.data.domain.Page;
@@ -32,7 +34,7 @@ public class LocationService {
 	@CacheEvict(value = "locations", allEntries = true)
 	public Location createLocation(Location location) {
 		if(locationRepository.existsByName(location.getName())) {
-			throw new RuntimeException("Location already exists with name: " + location.getName());
+			throw new ResourceAlreadyExistsException("Location already exists with name: " + location.getName());
 		}
 		return locationRepository.save(location);
 	}
@@ -40,7 +42,7 @@ public class LocationService {
 	@Cacheable(value = "location" ,key="#id")
 	public Location getLocationById(Long id) {
 		return locationRepository.findById(id)
-				.orElseThrow(() -> new RuntimeException("Location not found with id: " + id));
+				.orElseThrow(() -> new ResourceNotFoundException("Location not found with id: " + id));
 	}
 
 	@CacheEvict(value = {"location", "locations"}, key = "#id", allEntries = true)

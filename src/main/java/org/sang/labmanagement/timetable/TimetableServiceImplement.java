@@ -781,7 +781,6 @@ public class TimetableServiceImplement implements TimetableService {
 	}
 
 
-
 	private void extractLessonTimes(Row row) {
 		String[] lessonData = getStringCellValue(row, 0).split("\\+");
 		for (String lesson : lessonData) {

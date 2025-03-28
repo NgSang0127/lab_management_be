@@ -9,6 +9,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -52,10 +53,10 @@ public class AdminController {
 			@AuthenticationPrincipal User currentUser // Lấy user đang thực hiện request từ Security Context
 	) {
 		User targetUser = userRepository.findById(id)
-				.orElseThrow(() -> new OperationNotPermittedException("User not found"));
+				.orElseThrow(() -> new UsernameNotFoundException("User not found"));
 
 		if (!adminService.canModifyUser(currentUser.getRole(), targetUser.getRole())) {
-			return ResponseEntity.status(HttpStatus.FORBIDDEN).body("Bạn không có quyền chỉnh sửa user này.");
+			return ResponseEntity.status(HttpStatus.FORBIDDEN).body("You can't have permission to modify this user");
 		}
 
 		return ResponseEntity.ok(adminService.updateUser(id, request));

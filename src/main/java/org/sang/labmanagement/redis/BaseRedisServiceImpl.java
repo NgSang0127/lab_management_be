@@ -23,7 +23,7 @@ public class BaseRedisServiceImpl<T> implements BaseRedisService<T> {
 
 	@Override
 	public void setWithExpiration(String key, T value, long timeoutInSeconds) {
-		redisTemplate.opsForValue().set(key, value, timeoutInSeconds, TimeUnit.SECONDS);
+		redisTemplate.opsForValue().set(key, value, timeoutInSeconds, TimeUnit.MILLISECONDS);
 	}
 
 	@Override

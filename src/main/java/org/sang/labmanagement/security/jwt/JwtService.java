@@ -5,6 +5,7 @@ import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.SignatureAlgorithm;
 import io.jsonwebtoken.io.Decoders;
 import io.jsonwebtoken.security.Keys;
+import jakarta.annotation.PostConstruct;
 import java.security.Key;
 import java.util.Date;
 import java.util.HashMap;
@@ -33,6 +34,10 @@ public class JwtService {
 	@Value("${application.security.jwt.refresh-token.expiration}")
 	private long refreshExpiration;
 
+//	@PostConstruct
+//	public void init() {
+//		System.out.println("JWT Secret Key: " + secretKey);
+//	}
 
 	public String generateToken(UserDetails userDetails) {
 		return generateToken(new HashMap<>(), userDetails);

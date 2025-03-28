@@ -1,6 +1,7 @@
 package org.sang.labmanagement.user;
 
 import com.fasterxml.jackson.annotation.JsonBackReference;
+import com.fasterxml.jackson.annotation.JsonFormat;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.annotation.JsonProperty.Access;
@@ -88,15 +89,14 @@ public class User implements UserDetails , Principal {
 
 	@CreatedDate
 	@Column(nullable = false,updatable = false)
+	@JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "dd/MM/yyyy HH:mm:ss")
 	private LocalDateTime createdDate;
 
 	@LastModifiedDate
 	@Column(insertable = false)
 	private LocalDateTime lastModifiedDate;
 
-//	@JsonIgnore
-//	@OneToMany(mappedBy = "user")
-//	private List<Token> token;
+
 
 	@Column(length = 1000)
 	private String image;
@@ -104,9 +104,7 @@ public class User implements UserDetails , Principal {
 //	@OneToMany(mappedBy = "user", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
 //	private Set<Notification> notifications;
 
-//	@JsonIgnore
-//	@OneToMany(mappedBy = "user",cascade = CascadeType.ALL)
-//	private List<EmailVerificationCode> emailCode;
+
 
 //	@JsonIgnore
 //	@OneToMany(mappedBy = "user",cascade = CascadeType.ALL)
