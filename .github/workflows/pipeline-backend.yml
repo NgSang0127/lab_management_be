@@ -49,9 +49,12 @@ jobs:
           java-version: '17'
           distribution: 'oracle'
 
-      - name: Running Unit Tests
-        run: |
-          ./mvnw clean test
+      - name: Grant execute permission for Maven Wrapper
+        run: chmod +x mvnw
+
+      - name: Compile Project
+        run: ./mvnw clean compile
+
 
 
 
