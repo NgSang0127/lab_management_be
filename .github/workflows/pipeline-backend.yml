@@ -136,17 +136,20 @@ jobs:
   deploy:
     name: Deploy Backend
     runs-on: ubuntu-20.04
-    needs: [build-image]
+    needs: [ build-image ]
     steps:
+      - name: Install sshpass
+        run: sudo apt-get install -y sshpass
+
       - name: Create deployment folder
-        run: ssh ${{ secrets.VPS_USERNAME }}@${{ secrets.VPS_IP }} "mkdir -p ci-cd"
+        run: sshpass -p "${{ secrets.VPS_PASSWORD }}" ssh -o StrictHostKeyChecking=no ${{ secrets.VPS_USERNAME }}@${{ secrets.VPS_IP }} "mkdir -p ci-cd"
 
       - name: Copy docker-compose file
-        run: scp -oStrictHostKeyChecking=no docker-compose.yml ${{ secrets.VPS_USERNAME }}@${{ secrets.VPS_IP }}:ci-cd/docker-compose.yml
+        run: sshpass -p "${{ secrets.VPS_PASSWORD }}" scp -o StrictHostKeyChecking=no docker-compose.yml ${{ secrets.VPS_USERNAME }}@${{ secrets.VPS_IP }}:ci-cd/docker-compose.yml
 
       - name: SET ENV variables and deploy
-        run:
-          ssh ${{ secrets.VPS_USERNAME }}@${{ secrets.VPS_IP }} <<EOF
+        run: |
+          sshpass -p "${{ secrets.VPS_PASSWORD }}" ssh -o StrictHostKeyChecking=no ${{ secrets.VPS_USERNAME }}@${{ secrets.VPS_IP }} <<EOF
           export EMAIL_HOSTNAME=${{ secrets.EMAIL_HOSTNAME }}
           export EMAIL_USERNAME=${{ secrets.EMAIL_USERNAME }}
           export EMAIL_PASSWORD=${{ secrets.EMAIL_PASSWORD }}
@@ -154,6 +157,7 @@ jobs:
           docker-compose -f docker-compose.yml pull -q
           docker-compose -f docker-compose.yml up -d
           EOF
+  
 
 
 
