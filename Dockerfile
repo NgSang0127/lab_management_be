@@ -24,11 +24,4 @@ ENV EMAIL_HOSTNAME=smtp.gmail.com
 ENV EMAIL_USERNAME=testdev01112002@gmail.com
 ENV EMAIL_PASSWORD=sgxklrzfsgeklpyd
 
-#CMD java -jar -Dspring.profiles.active=${ACTIVE_PROFILE} -Dspring.datasource.url=${DB_URL} LabManagement-${JAR_VERSION}.jar
-CMD ["java", "-jar",
-     "-Dspring.profiles.active=${ACTIVE_PROFILE}",
-     "-Dspring.datasource.url=${DB_URL}",
-     "-Dspring.mail.host=${EMAIL_HOSTNAME}",
-     "-Dspring.mail.username=${EMAIL_USERNAME}",
-     "-Dspring.mail.password=${EMAIL_PASSWORD}",
-     "LabManagement-${JAR_VERSION}.jar"]
+CMD java -jar -Dspring.profiles.active=${ACTIVE_PROFILE} -Dspring.datasource.url=${DB_URL} LabManagement-${JAR_VERSION}.jar
