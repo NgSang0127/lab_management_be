@@ -6,6 +6,7 @@ import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
 import java.io.IOException;
 import java.net.URLEncoder;
+import java.util.Locale;
 import java.util.Map;
 import lombok.RequiredArgsConstructor;
 import org.sang.labmanagement.auth.request.ForgotPasswordRequest;
@@ -18,6 +19,8 @@ import org.sang.labmanagement.user.UserDetailsServiceImplement;
 import org.sang.labmanagement.user.UserRepository;
 import org.sang.labmanagement.utils.LogExecution;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.MessageSource;
+import org.springframework.context.i18n.LocaleContextHolder;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -40,6 +43,9 @@ public class AuthController {
 	
 	private final AuthenticationService authService;
 	private final UserDetailsServiceImplement userDetailsServiceImplement;
+	private final MessageSource messageSource;
+
+
 
 
 	@PostMapping("/register")

@@ -6,10 +6,12 @@ import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
+import java.util.Locale;
 import lombok.RequiredArgsConstructor;
 
 import org.sang.labmanagement.cookie.CookieService;
 import org.sang.labmanagement.redis.BaseRedisServiceImpl;
+import org.springframework.context.i18n.LocaleContextHolder;
 import org.springframework.lang.NonNull;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;

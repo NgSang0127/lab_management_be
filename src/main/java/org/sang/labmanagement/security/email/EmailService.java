@@ -6,11 +6,13 @@ import java.nio.charset.StandardCharsets;
 import java.security.SecureRandom;
 import java.time.LocalDateTime;
 import java.util.HashMap;
+import java.util.Locale;
 import java.util.Map;
 import lombok.RequiredArgsConstructor;
 import org.sang.labmanagement.redis.BaseRedisServiceImpl;
-import org.sang.labmanagement.user.User;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.cglib.core.Local;
+import org.springframework.context.i18n.LocaleContextHolder;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.scheduling.annotation.Async;
@@ -70,7 +72,8 @@ public class EmailService {
 			EmailTemplateName emailTemplate,
 			String confirmationUrl,
 			String activationCode,
-			String subject
+			String subject,
+			Locale locale
 	) throws MessagingException {
 		String templateName;
 		if(emailTemplate == null){
@@ -90,7 +93,7 @@ public class EmailService {
 		properties.put("activation_code",activationCode);
 		properties.put("email",to);
 
-		createContextEmail(to, subject, templateName, mimeMessage, helper, properties);
+		createContextEmail(to, subject, templateName, mimeMessage, helper, properties,locale);
 	}
 
 	public String generateAndSaveActivationCode(String email){
@@ -115,7 +118,7 @@ public class EmailService {
 	public void sendMaintenanceReminderEmail(
 			String to, String username,EmailTemplateName emailTemplate, String subject,
 			Long assetId, String assetName,
-			String scheduledDate, String remarks) throws MessagingException {
+			String scheduledDate, String remarks,Locale locale) throws MessagingException {
 		String templateName = (emailTemplate != null) ? emailTemplate.getName() : "maintenance_scheduler"; // fallback
 		// template
 		MimeMessage mimeMessage= mailSender.createMimeMessage();
@@ -131,12 +134,12 @@ public class EmailService {
 		properties.put("scheduledDate", scheduledDate);
 		properties.put("remarks", remarks);
 
-		createContextEmail(to, subject, templateName, mimeMessage, helper, properties);
+		createContextEmail(to, subject, templateName, mimeMessage, helper, properties,locale);
 	}
 
 	private void createContextEmail(String to, String subject, String templateName, MimeMessage mimeMessage,
-			MimeMessageHelper helper, Map<String, Object> properties) throws MessagingException {
-		Context context=new Context();
+			MimeMessageHelper helper, Map<String, Object> properties, Locale locale) throws MessagingException {
+		Context context=new Context(locale);
 		context.setVariables(properties);
 		helper.setFrom("contact@admin.com");
 		helper.setTo(to);
@@ -153,7 +156,8 @@ public class EmailService {
 			String username,
 			EmailTemplateName emailTemplate,
 			String activationCode,
-			String subject)
+			String subject,
+			Locale locale)
 			throws MessagingException {
 		String templateName=emailTemplate.getName();
 		MimeMessage mimeMessage= mailSender.createMimeMessage();
@@ -166,7 +170,7 @@ public class EmailService {
 		properties.put("username",username);
 		properties.put("activation_code",activationCode);
 
-		createContextEmail(to, subject, templateName, mimeMessage, helper, properties);
+		createContextEmail(to, subject, templateName, mimeMessage, helper, properties,locale);
 	}
 
 

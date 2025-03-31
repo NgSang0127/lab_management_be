@@ -4,6 +4,7 @@ import jakarta.mail.MessagingException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
+import java.util.Locale;
 import org.sang.labmanagement.auth.request.ChangePasswordRequest;
 import org.sang.labmanagement.auth.request.ForgotPasswordRequest;
 import org.sang.labmanagement.auth.request.ResetPasswordRequest;
@@ -20,7 +21,7 @@ public interface AuthenticationService {
 
 	AuthenticationResponse register(RegistrationRequest request) throws MessagingException;
 
-	void sendValidationEmail(String email) throws MessagingException;
+	void sendValidationEmail(String email, Locale locale) throws MessagingException;
 
 	User findUser(Authentication connectedUser);
 

@@ -35,6 +35,7 @@ spring:
       mail:
         smtp:
           trust: "*"
+        charset: UTF-8
         auth: true
         starttls:
           enabled: true
@@ -73,3 +74,9 @@ logging:
     name: logs/spring-boot-app.log
 server:
   port: 8080
+  servlet:
+    encoding:
+      charset: UTF-8
+      enabled: true
+      force: true
+

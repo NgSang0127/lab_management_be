@@ -5,7 +5,7 @@
     <meta name="viewport"
           content="width=device-width, initial-scale=1.0">
     <meta http-equiv="X-UA-Compatible" content="ie=edge">
-    <title>Account Activation</title>
+    <title th:text="#{email.title}">Account Activation</title>
     <style>
       body {
         font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
@@ -88,21 +88,21 @@
         <img src="https://res.cloudinary.com/dsboloq8v/image/upload/v1742473811/logo_hwruel.png"  alt="Lab Management HCMIU">
     </div>
 
-    <h1>Confirm Your Email Address</h1>
-    <p class="greeting" th:text="'Dear ' + ${email} + ','"></p>
-    <p>We are delighted to have you on board! To complete your account registration, please verify your email address by using the activation code below:</p>
+    <h1 th:text="#{email.title}">Confirm Your Email Address</h1>
+    <p class="greeting" th:utext="#{email.greeting(${email})}"></p>
+    <p th:utext="#{email.welcome}"></p>
 
     <div class="activation-code" th:text="${activation_code}"></div>
 
-    <p>Alternatively, you can activate your account by clicking the button below:</p>
+    <p th:utext="#{email.alternative}"></p>
     <div class="activation-link">
-        <a th:href="@{${confirmationUrl}(code=${activation_code}, email=${email})}">Activate Your Account</a>
+        <a th:href="@{${confirmationUrl}(code=${activation_code}, email=${email})}" th:text="#{email.button}">Activate Your Account</a>
     </div>
 
-    <p>If you did not sign up for this account, please disregard this email.</p>
+    <p th:utext="#{email.ignore}"></p>
 
     <div class="footer">
-        <p>Best regards,<br>Lab Management HCMIU Team</p>
+        <p th:utext="#{email.footer}"></p>
     </div>
 </div>
 </body>

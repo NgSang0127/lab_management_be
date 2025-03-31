@@ -1,13 +1,12 @@
 package org.sang.labmanagement.auth;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import jakarta.mail.IllegalWriteException;
 import jakarta.mail.MessagingException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.util.HashMap;
-import java.util.Map;
+import java.util.Locale;
 import java.util.Optional;
 import lombok.RequiredArgsConstructor;
 import org.sang.labmanagement.auth.request.ChangePasswordRequest;
@@ -32,12 +31,12 @@ import org.sang.labmanagement.tfa.TwoFactorAuthenticationService;
 import org.sang.labmanagement.user.Role;
 import org.sang.labmanagement.user.User;
 import org.sang.labmanagement.user.UserRepository;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.cache.annotation.Cacheable;
+import org.springframework.beans.factory.annotation.Value;;
+import org.springframework.context.MessageSource;
+import org.springframework.context.i18n.LocaleContextHolder;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.security.authentication.AuthenticationManager;
-import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.authentication.LockedException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
@@ -63,27 +62,29 @@ public class AuthenticationServiceImplement implements AuthenticationService {
 	private final TokenService tokenService;
 	private final BaseRedisServiceImpl<String> redisService;
 	private final CookieService cookieService;
+	private final MessageSource messageSource;
+
 
 	@Override
 	public AuthenticationResponse register(RegistrationRequest request) throws MessagingException {
 		Optional<User> existingUser = userRepository.findByEmail(request.getEmail());
+		Locale locale= LocaleContextHolder.getLocale();
 
 		if (existingUser.isPresent()) {
 			User user = existingUser.get();
 
 			if (!user.isEnabled()) {
-				sendValidationEmail(user.getEmail());
+				sendValidationEmail(user.getEmail(),locale);
 				return AuthenticationResponse.builder()
-						.message("Email is already registered but not verified. Verification email resent.")
+						.message(messageSource.getMessage("register.email.exists",null,locale))
 						.role(user.getRole())
 						.build();
 			}
-
-			throw new IllegalStateException("Email is already used");
+			throw new IllegalStateException(messageSource.getMessage("register.email.used", null, locale));
 		}
 
 		if (userRepository.findByUsername(request.getUsername()).isPresent()) {
-			throw new IllegalStateException("Username is already used");
+			throw new IllegalStateException(messageSource.getMessage("register.username.used", null, locale));
 		}
 
 		User savedUser = User.builder()
@@ -101,10 +102,10 @@ public class AuthenticationServiceImplement implements AuthenticationService {
 				.build();
 
 		userRepository.save(savedUser);
-		sendValidationEmail(savedUser.getEmail());
+		sendValidationEmail(savedUser.getEmail(),locale);
 
 		return AuthenticationResponse.builder()
-				.message("Register successful. Please verify your email.")
+				.message(messageSource.getMessage("register.success", null, locale))
 				.role(savedUser.getRole())
 				.build();
 	}
@@ -112,6 +113,7 @@ public class AuthenticationServiceImplement implements AuthenticationService {
 
 	@Override
 	public AuthenticationResponse login(LoginRequest request, HttpServletResponse response) {
+		Locale locale = LocaleContextHolder.getLocale();
 		var auth = authenticationManager.authenticate(
 				new UsernamePasswordAuthenticationToken(
 						request.getUsername(),
@@ -121,7 +123,7 @@ public class AuthenticationServiceImplement implements AuthenticationService {
 		var user = ((User) auth.getPrincipal());
 
 		if (user.isAccountLocked()) {
-			throw new LockedException("User account is locked");
+			throw new LockedException(messageSource.getMessage("login.account.locked", null, locale));
 		}
 
 		// Nếu bật TFA, chưa trả về cookie vội
@@ -134,7 +136,7 @@ public class AuthenticationServiceImplement implements AuthenticationService {
 			}
 
 			return AuthenticationResponse.builder()
-					.message("Please enter the OTP code after scanning the QR code.")
+					.message(messageSource.getMessage("login.tfa.required", null, locale))
 					.tfaEnabled(true)
 					.build();
 		}
@@ -151,6 +153,7 @@ public class AuthenticationServiceImplement implements AuthenticationService {
 
 		return AuthenticationResponse.builder()
 				.accessToken(jwtToken)
+				.message(messageSource.getMessage("login.success", null, locale))
 				.tfaEnabled(false)
 				.build();
 	}
@@ -161,25 +164,28 @@ public class AuthenticationServiceImplement implements AuthenticationService {
 	@Override
 	@Transactional
 	public void activateAccount(String code,String email) throws MessagingException {
+		Locale locale = LocaleContextHolder.getLocale();
 		String storedCode=emailService.getEmailCode(email);
 
 		if (storedCode == null) {
-			throw new EmailCodeException("The code is incorrect or has expired");
+			throw new EmailCodeException(messageSource.getMessage("activate.code.incorrect",null,locale));
 		}
 
 		// Kiểm tra xem mã đã hết hạn chưa
 		if (emailService.isEmailCodeExpired(email)) {
 			emailService.revokeEmailCode(email);
-			sendValidationEmail(email);
-			throw new EmailCodeException("The activation code has expired. A new code has been sent to your email.");
+			sendValidationEmail(email,locale);
+			throw new EmailCodeException(messageSource.getMessage("activate.code.expired",null,locale));
 		}
 
 
 		User user = userRepository.findByEmail(email)
-				.orElseThrow(() -> new UsernameNotFoundException("User not found with email: "+email));
+				.orElseThrow(() -> new UsernameNotFoundException(messageSource.getMessage("user.notfound",
+						new Object[]{email},
+						locale)));
 
 		if (user.isEnabled()) {
-			throw new AccountAlreadyActivatedException("This account is already activated.");
+			throw new AccountAlreadyActivatedException(messageSource.getMessage("activate.already",null,locale));
 		}
 
 		user.setEnabled(true);
@@ -193,31 +199,33 @@ public class AuthenticationServiceImplement implements AuthenticationService {
 
 	@Override
 	public void refreshToken(HttpServletRequest request, HttpServletResponse response) throws IOException {
+		Locale locale = LocaleContextHolder.getLocale();
 		String username;
 		String refreshToken = cookieService.getCookieValue(request, "refresh_token");
 		if (refreshToken == null) {
-			throw new TokenException("Missing refresh token");
+			throw new TokenException(messageSource.getMessage("token.missing",null,locale));
 		}
 		username = jwtService.extractUsername(refreshToken);
 
 		if (username == null) {
-			throw new UsernameNotFoundException("Username not found with username extract jwt: "+ null);
+			throw new UsernameNotFoundException(messageSource.getMessage("user.notfound.jwt",null,locale)+ refreshToken);
 		}
 
 		var user = userRepository.findByUsername(username).orElseThrow(
-				() -> new UsernameNotFoundException("User not found")
+				() -> new UsernameNotFoundException(messageSource.getMessage("user.notfound.username",new Object[]{username}
+						,locale))
 		);
 
 
 		// Kiểm tra xem Refresh Token có bị thu hồi không
 		if (redisService.get("blacklist:refresh:" + refreshToken) != null) {
-			throw new TokenException("Refresh token is revoked");
+			throw new TokenException(messageSource.getMessage("token.revoked",null,locale));
 		}
 
 
 		String storedRefreshToken = tokenService.getRefreshToken(username);
 		if (!tokenService.isRefreshTokenValid(username,storedRefreshToken)) {
-			throw new TokenException("Invalid or expired refresh token");
+			throw new TokenException(messageSource.getMessage("token.invalid",null,locale));
 		}
 
 		if (jwtService.isTokenValid(refreshToken, user)) {
@@ -241,20 +249,21 @@ public class AuthenticationServiceImplement implements AuthenticationService {
 			response.setContentType(MediaType.APPLICATION_JSON_VALUE);
 			new ObjectMapper().writeValue(response.getOutputStream(), authResponse);
 		} else {
-			throw new TokenException("Invalid refresh token");
+			throw new TokenException(messageSource.getMessage("token.invalid",null,locale));
 		}
 	}
 
 
 	@Override
-	public void sendValidationEmail(String email) throws MessagingException {
+	public void sendValidationEmail(String email,Locale locale) throws MessagingException {
 		var newCode = emailService.generateAndSaveActivationCode(email);
 		emailService.sendEmail(
 				email,
 				EmailTemplateName.ACTIVATE_ACCOUNT,
 				activationUrl,
 				newCode,
-				"Account Activation"
+				"Account Activation",
+				locale
 		);
 	}
 
@@ -284,9 +293,10 @@ public class AuthenticationServiceImplement implements AuthenticationService {
 	@Override
 	@Transactional
 	public String forgotPassword(ForgotPasswordRequest request) throws MessagingException {
+		Locale locale = LocaleContextHolder.getLocale();
 		Optional<User> userOpt = userRepository.findByEmail(request.getEmail());
 		if (userOpt.isEmpty()) {
-			return "Email does not exist";
+			return messageSource.getMessage("forgot.email.not.exist",null,locale);
 		}
 
 		User user = userOpt.get();
@@ -298,51 +308,56 @@ public class AuthenticationServiceImplement implements AuthenticationService {
 					user.getFullName(),
 					EmailTemplateName.RESET_PASSWORD,
 					resetPasswordCode,
-					"Reset Your Password"
+					"Reset Your Password",
+					locale
 			);
 		} catch (MessagingException e) {
-			return "Failed to send email. Please try again later.";
+			return messageSource.getMessage("forgot.email.failed",null,locale);
 		}
 
-		return "A reset password code has been sent to your email!";
+		return messageSource.getMessage("forgot.email.sent",null,locale);
 	}
 
 	@Override
 	public String validateResetCode(ResetPasswordRequest request) throws MessagingException {
-		String storedResetCode=emailService.getEmailCode(request.getEmail());
+		Locale locale = LocaleContextHolder.getLocale();
+		String storedResetCode = emailService.getEmailCode(request.getEmail());
+
 		if (storedResetCode == null) {
-			return "Reset code invalid";
+			return messageSource.getMessage("reset.code.invalid", null, locale);
 		}
 
 		if (emailService.isEmailCodeExpired(request.getEmail())) {
 			emailService.deleteEmailCode(request.getEmail());
-			return "Expired Reset Code";
+			return messageSource.getMessage("reset.code.expired", null, locale);
 		}
 
 		emailService.revokeEmailCode(request.getEmail());
-
-		return "Reset code is valid";
+		return messageSource.getMessage("reset.code.valid", null, locale);
 	}
 
 	@Override
 	@Transactional
 	public String resetPassword(ResetPasswordRequest request) throws MessagingException {
-		String email=request.getEmail();
-		String storedResetCode=emailService.getEmailCode(email);
-		if(storedResetCode == null || !emailService.isEmailCodeMatch(email,request.getCode())){
-			return  "Invalid or expired reset code";
+		Locale locale = LocaleContextHolder.getLocale();
+		String email = request.getEmail();
+		String storedResetCode = emailService.getEmailCode(email);
+
+		if (storedResetCode == null || !emailService.isEmailCodeMatch(email, request.getCode())) {
+			return messageSource.getMessage("reset.code.invalid_or_expired", null, locale);
 		}
 
 		User user = userRepository.findByEmail(email)
-				.orElseThrow(() -> new UsernameNotFoundException("User not found with email: "+email));
+				.orElseThrow(() -> new UsernameNotFoundException(
+						messageSource.getMessage("user.notfound", new Object[]{email}, locale)
+				));
 
 		String encodedPassword = passwordEncoder.encode(request.getNewPassword());
 		user.setPassword(encodedPassword);
 		userRepository.save(user);
-
 		emailService.deleteEmailCode(email);
 
-		return "Password reset successfully";
+		return messageSource.getMessage("password.reset.success", null, locale);
 	}
 
 	@Override
@@ -365,42 +380,44 @@ public class AuthenticationServiceImplement implements AuthenticationService {
 
 	@Override
 	public AuthenticationResponse toggleTwoFactorAuthentication(Authentication connectedUser) {
-		User user=(User)connectedUser.getPrincipal();
-			if (user.isTwoFactorEnabled()) {
+		Locale locale = LocaleContextHolder.getLocale();
+		User user = (User) connectedUser.getPrincipal();
 
-				user.setTwoFactorEnabled(false);
-				user.setSecret(null);
-				userRepository.save(user);
-				return AuthenticationResponse.builder()
-						.message("Two-Factor Authentication disabled")
-						.build();
-			} else {
-
-				String secret = twoFactorAuthenticationService.generateNewSecret();
-				user.setTwoFactorEnabled(true);
-				user.setSecret(secret);
-				userRepository.save(user);
-				String qrCodeUri = twoFactorAuthenticationService.generateQrCodeImageUri(secret);
-				return AuthenticationResponse.builder()
-						.message("Two-Factor Authentication enabled")
-						.secretImageUri(qrCodeUri)
-						.build();
-			}
+		if (user.isTwoFactorEnabled()) {
+			user.setTwoFactorEnabled(false);
+			user.setSecret(null);
+			userRepository.save(user);
+			return AuthenticationResponse.builder()
+					.message(messageSource.getMessage("tfa.disabled", null, locale))
+					.build();
+		} else {
+			String secret = twoFactorAuthenticationService.generateNewSecret();
+			user.setTwoFactorEnabled(true);
+			user.setSecret(secret);
+			userRepository.save(user);
+			String qrCodeUri = twoFactorAuthenticationService.generateQrCodeImageUri(secret);
+			return AuthenticationResponse.builder()
+					.message(messageSource.getMessage("tfa.enabled", null, locale))
+					.secretImageUri(qrCodeUri)
+					.build();
+		}
 	}
 
 	@Override
 	@Transactional
 	public AuthenticationResponse verifyOtpQR(String otpCode, String username,HttpServletResponse response) {
+		Locale locale=LocaleContextHolder.getLocale();
 		User user = userRepository.findByUsername(username)
-				.orElseThrow(() -> new UsernameNotFoundException("Username not found: " + username));
+				.orElseThrow(() -> new UsernameNotFoundException(messageSource.getMessage("user.notfound",
+						new Object[]{username},locale)));
 
 		if (!user.isTwoFactorEnabled()) {
-			throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "2FA is not enabled for this user.");
+			throw new ResponseStatusException(HttpStatus.BAD_REQUEST, messageSource.getMessage("2fa.not.enabled", null, locale));
 		}
 
 		boolean isValidOtp = twoFactorAuthenticationService.isOtpValid(user.getSecret(), otpCode);
 		if (!isValidOtp) {
-			throw new QRCodeException("Invalid OTP code by QR");
+			throw new QRCodeException(messageSource.getMessage("otp.qr.invalid", null, locale));
 		}
 
 		// Xóa Refresh Token cũ trước khi tạo mới
@@ -428,8 +445,12 @@ public class AuthenticationServiceImplement implements AuthenticationService {
 	@Override
 	@Transactional
 	public String verifyOtpByMail(String username) {
+		Locale locale=LocaleContextHolder.getLocale();
+		System.out.println("Locale: " + locale);
+		String errorMessage = messageSource.getMessage("otp.email.sent", null, locale);
+		System.out.println("Error message: " + errorMessage);
 		User user=userRepository.findByUsername(username)
-				.orElseThrow(()-> new UsernameNotFoundException("Username not found with "+username));
+				.orElseThrow(()-> new UsernameNotFoundException(messageSource.getMessage("user.notfound", new Object[]{username}, locale)));
 		String otpCode = emailService.generateAndSaveActivationCode(user.getEmail());
 
 		try {
@@ -438,32 +459,34 @@ public class AuthenticationServiceImplement implements AuthenticationService {
 					user.getFullName(),
 					EmailTemplateName.TWO_FACTOR_AUTHENTICATION,
 					otpCode,
-					"TWO FACTOR AUTHENTICATION"
+					"TWO FACTOR AUTHENTICATION",
+					locale
 			);
 		} catch (MessagingException e) {
-			return "Failed to send email. Please try again later.";
+			return messageSource.getMessage("email.send.failed", null, locale);
 		}
 
-		return "A two factor authentication code has been sent to your email!";
+		return messageSource.getMessage("otp.email.sent", null, locale);
 	}
 	@Override
 	@Transactional
 	public AuthenticationResponse verifyTFAEmail(VerificationRequest request, HttpServletResponse response) {
+		Locale locale = LocaleContextHolder.getLocale();
 		User user = userRepository.findByUsername(request.getUsername())
-				.orElseThrow(() -> new UsernameNotFoundException("Username not found: " + request.getUsername()));
+				.orElseThrow(() -> new UsernameNotFoundException(messageSource.getMessage("user.notfound", new Object[]{request.getUsername()}, locale)));
 
 		String storedOtp = emailService.getEmailCode(user.getEmail());
 
 		if (storedOtp == null) {
-			throw new EmailCodeException("Invalid OTP TFA");
+			throw new EmailCodeException(messageSource.getMessage("otp.email.invalid", null, locale));
 		}
 
 		if (emailService.isEmailCodeExpired(user.getEmail())) {
-			throw new EmailCodeException("OTP TFA has already expired");
+			throw new EmailCodeException(messageSource.getMessage("otp.email.expired", null, locale));
 		}
 
 		if (!emailService.isEmailCodeMatch(user.getEmail(), request.getCode())) {
-			throw new EmailCodeException("OTP invalid");
+			throw new EmailCodeException(messageSource.getMessage("otp.email.mismatch", null, locale));
 		}
 
 		// ✅ Chỉ xóa OTP sau khi xác thực thành công

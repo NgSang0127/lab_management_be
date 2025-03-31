@@ -68,7 +68,7 @@ public class SecurityConfig {
 
 			corsConfig.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
 
-			corsConfig.setAllowedHeaders(List.of("Authorization", "Content-Type"));
+			corsConfig.setAllowedHeaders(List.of("Authorization", "Content-Type","Accept-Language"));
 
 			corsConfig.setExposedHeaders(List.of("Authorization", "Content-Disposition"));
 

@@ -1,11 +1,10 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport"
-          content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta http-equiv="X-UA-Compatible" content="ie=edge">
-    <title>OTP for Two-Factor Authentication</title>
+    <title th:text="#{otp.title}">OTP for Two-Factor Authentication</title>
     <style>
       body {
         font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
@@ -39,21 +38,20 @@
 
       p {
         color: #666666;
-        font-size: 20px;
+        font-size: 16px;
         line-height: 1.5;
         margin-bottom: 20px;
       }
 
       .otp-code {
-        font-size: 48px;
-        color: #333333;
+        font-size: 36px;
+        color: #ffffff;
         font-weight: bold;
         letter-spacing: 2px;
         margin: 20px 0;
         display: inline-block;
-        padding: 1px 20px;
+        padding: 10px 20px;
         background-color: #007bff;
-        text-decoration: none;
         border-radius: 6px;
         box-shadow: 0 4px 10px rgba(0, 123, 255, 0.4);
         transition: background-color 0.3s ease, box-shadow 0.3s ease;
@@ -72,14 +70,14 @@
         <img src="https://res.cloudinary.com/dsboloq8v/image/upload/v1742473811/logo_hwruel.png" alt="Lab Management HCMIU">
     </div>
 
-    <h1>Your OTP for Two-Factor Authentication</h1>
-    <p class="greeting" th:text="'Hello ' + ${username} + ','"></p>
-    <p>Use the OTP below to complete your two-factor authentication:</p>
+    <h1 th:text="#{otp.title}">Your OTP for Two-Factor Authentication</h1>
+    <p class="greeting" th:utext="#{otp.greeting(${username})}"></p>
+    <p th:utext="#{otp.message}"></p>
     <div class="otp-code">
-        <p th:text="${activation_code}">OTP Code: [Your OTP Code]</p>
+        <span th:text="${activation_code}">[Your OTP Code]</span>
     </div>
     <div class="footer">
-        <p>If you didn’t request this, please ignore this email.</p>
+        <p th:utext="#{otp.footer}"></p>
     </div>
 </div>
 </body>
