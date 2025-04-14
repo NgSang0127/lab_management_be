@@ -1,4 +1,4 @@
-package org.sang.labmanagement.asset.asset_history;
+package org.sang.labmanagement.asset.history;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -51,7 +51,6 @@ public class AssetHistory {
 	private LocalDateTime changeDate;
 
 	private String remarks;
-
 
 
 }

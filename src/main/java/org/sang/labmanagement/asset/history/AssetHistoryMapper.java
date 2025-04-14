@@ -1,4 +1,4 @@
-package org.sang.labmanagement.asset.asset_history;
+package org.sang.labmanagement.asset.history;
 
 import org.sang.labmanagement.asset.Asset;
 import org.sang.labmanagement.user.User;
@@ -15,6 +15,8 @@ public class AssetHistoryMapper {
 		dto.setNewStatus(assetHistory.getNewStatus());
 		dto.setChangeDate(assetHistory.getChangeDate());
 		dto.setRemarks(assetHistory.getRemarks());
+		dto.setAssetName(assetHistory.getAsset().getName());
+		dto.setUsername(assetHistory.getUser().getUsername());
 		return dto;
 
 	}
