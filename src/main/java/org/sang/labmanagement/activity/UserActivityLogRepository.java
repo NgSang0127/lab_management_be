@@ -3,6 +3,7 @@ package org.sang.labmanagement.activity;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Optional;
 import org.sang.labmanagement.user.Role;
 import org.sang.labmanagement.user.User;
 import org.springframework.data.domain.Page;
@@ -13,14 +14,16 @@ import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 @Repository
-public interface UserActivityLogRepository extends JpaRepository<UserActivityLog,Long> {
+public interface UserActivityLogRepository extends JpaRepository<UserActivityLog, Long> {
 
 	// Tìm các phiên đang hoạt động (không có endTime)
 	@Query("SELECT log FROM UserActivityLog log WHERE log.user.username = :username AND log.endTime IS NULL")
 	List<UserActivityLog> findOngoingSessions(@Param("username") String username);
 
 	// Tổng thời gian sử dụng theo ngày
-	@Query("SELECT SUM(log.duration) FROM UserActivityLog log WHERE log.user.username = :username AND log.startTime >= :startOfDay AND log.startTime < :endOfDay")
+	@Query("SELECT SUM(log.duration) FROM UserActivityLog log " +
+			"WHERE log.user.username = :username " +
+			"AND (log.startTime <= :endOfDay AND (log.endTime IS NULL OR log.endTime >= :startOfDay))")
 	Long getTotalUsageTimeByDay(@Param("username") String username,
 			@Param("startOfDay") LocalDateTime startOfDay,
 			@Param("endOfDay") LocalDateTime endOfDay);
@@ -46,4 +49,6 @@ public interface UserActivityLogRepository extends JpaRepository<UserActivityLog
 			Pageable pageable);
 
 
+	@Query("SELECT log FROM UserActivityLog log WHERE log.endTime IS NULL")
+	Page<UserActivityLog> findByEndTimeIsNull(Pageable pageable);
 }

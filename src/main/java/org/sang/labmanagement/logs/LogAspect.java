@@ -82,7 +82,12 @@ public class LogAspect {
 
 		Authentication connectedUser = (Authentication) request.getUserPrincipal();
 		if (connectedUser == null) {
-			connectedUser = new AnonymousAuthenticationToken("anonymous", "anonymous", AuthorityUtils.NO_AUTHORITIES);
+			connectedUser = new AnonymousAuthenticationToken(
+					"anonymous",
+					"anonymous",
+					AuthorityUtils.createAuthorityList("ROLE_ANONYMOUS")
+			);
+
 		}
 
 		// Lấy thông tin action từ endpoint

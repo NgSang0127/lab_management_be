@@ -23,7 +23,7 @@ public class AttendanceController {
 	private final AttendanceService attendanceService;
 
 	@PostMapping()
-	@PreAuthorize("hasRole('ADMIN')")
+	@PreAuthorize("hasRole('STUDENT')")
 	public ResponseEntity<String> checkAttendance(@RequestBody LocationRequest request,
 			Authentication connectedUser){
 		double distance=attendanceService.calculateDistance(LAB_LAT,LAB_LON,request.getLatitude(),
@@ -33,7 +33,7 @@ public class AttendanceController {
 			attendanceService.saveAttendanceLog(request,connectedUser);
 			return ResponseEntity.ok("Attendance confirmed");
 		}
-		return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("You are outside the allowed area");
+		return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("You are outside the allowed area");
 	}
 
 

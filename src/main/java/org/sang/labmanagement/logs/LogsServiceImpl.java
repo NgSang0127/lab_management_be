@@ -29,37 +29,32 @@ public class LogsServiceImpl implements LogsService {
 
 	@Override
 	public void saveLog(String endpoint, LocalDateTime timestamp, String action, Authentication connectedUser,
-			String codeCourse, String NH, String TH, String timetableName, String ipAddress, String userAgent){
-		// Ensure the principal is of type User
-		if (connectedUser.getPrincipal() instanceof User) {
-			User user = (User) connectedUser.getPrincipal();
+			String codeCourse, String NH, String TH, String timetableName,
+			String ipAddress, String userAgent) {
 
-			Course course = null;
-			if (codeCourse != null) {
-				// Only attempt to find the course if courseId is not null
-				course = courseRepository.findByCodeAndNHAndTH(codeCourse,NH,TH).orElse(null);
-			} else {
-				// Handle case where courseId is null (if necessary)
-				// You could log or throw an exception here
-			}
-
-			// Create the log entry
-			Logs logs = Logs.builder()
-					.endpoint(endpoint)
-					.timestamp(timestamp)
-					.action(action)
-					.user(user)
-					.course(course)
-					.ipAddress(ipAddress)
-					.userAgent(userAgent)
-					.build();
-
-			logRepository.save(logs);
-		} else {
-			// Log or throw exception if principal is not a User
-			throw new IllegalStateException("Authentication principal is not a User");
+		User user = null;
+		if (connectedUser != null && connectedUser.getPrincipal() instanceof User) {
+			user = (User) connectedUser.getPrincipal();
 		}
+
+		Course course = null;
+		if (codeCourse != null) {
+			course = courseRepository.findByCodeAndNHAndTH(codeCourse, NH, TH).orElse(null);
+		}
+
+		Logs logs = Logs.builder()
+				.endpoint(endpoint)
+				.timestamp(timestamp)
+				.action(action)
+				.user(user) // có thể null nếu anonymous
+				.course(course)
+				.ipAddress(ipAddress)
+				.userAgent(userAgent)
+				.build();
+
+		logRepository.save(logs);
 	}
+
 
 
 	@Override
