@@ -29,7 +29,7 @@ public interface AuthenticationService {
 
 	void activateAccount(String code,String email) throws MessagingException;
 
-	void refreshToken(HttpServletRequest request,
+	AuthenticationResponse refreshToken(HttpServletRequest request,
 			HttpServletResponse response) throws IOException;
 
 	boolean changePassword(ChangePasswordRequest request,Authentication connectedUser);

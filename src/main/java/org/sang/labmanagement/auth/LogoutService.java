@@ -1,6 +1,6 @@
 package org.sang.labmanagement.auth;
 
-import jakarta.servlet.http.Cookie;
+
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
@@ -24,23 +24,51 @@ public class LogoutService implements LogoutHandler {
 	public void logout(HttpServletRequest request, HttpServletResponse response, Authentication authentication) {
 		final String authHeader = request.getHeader(HttpHeaders.AUTHORIZATION);
 		final String jwt;
-		jwt=cookieService.getCookieValue(request,"access_token");
-		String username = jwtService.extractUsername(jwt);
+		jwt = cookieService.getCookieValue(request, "access_token");
 
-		// Xóa Access Token khỏi Redis (Thêm vào danh sách đen)
-		redisService.setWithExpiration("blacklist:access:" + jwt, "revoked", 3600);
+		// Add null check before extracting username
+		if (jwt != null && !jwt.isEmpty()) {
+			String username = jwtService.extractUsername(jwt);
 
-		String storedRefreshToken = redisService.get("refresh_token:" + username);
+			// Only proceed with blacklisting if we have a valid username
+			if (username != null) {
+				// Xóa Access Token khỏi Redis (Thêm vào danh sách đen)
+				redisService.setWithExpiration("blacklist:access:" + jwt, "revoked", 3600);
 
-		if (storedRefreshToken != null) {
-			// Thêm Refresh Token vào blacklist
-			redisService.setWithExpiration("blacklist:refresh:" + storedRefreshToken, "revoked", 3600);
-			// Xóa khỏi Redis
-			redisService.delete("refresh_token:" + username);
+				String storedRefreshToken = redisService.get("refresh_token:" + username);
+
+				if (storedRefreshToken != null) {
+					// Thêm Refresh Token vào blacklist
+					redisService.setWithExpiration("blacklist:refresh:" + storedRefreshToken, "revoked", 3600);
+					// Xóa khỏi Redis
+					redisService.delete("refresh_token:" + username);
+				}
+			}
+		} else if (authHeader != null && authHeader.startsWith("Bearer ")) {
+			// If no cookie token, try from Authorization header
+			String headerToken = authHeader.substring(7);
+			if (!headerToken.isEmpty()) {
+				try {
+					String username = jwtService.extractUsername(headerToken);
+					if (username != null) {
+						redisService.setWithExpiration("blacklist:access:" + headerToken, "revoked", 3600);
+
+						String storedRefreshToken = redisService.get("refresh_token:" + username);
+						if (storedRefreshToken != null) {
+							redisService.setWithExpiration("blacklist:refresh:" + storedRefreshToken, "revoked", 3600);
+							redisService.delete("refresh_token:" + username);
+						}
+					}
+				} catch (Exception e) {
+					// Log the error but don't throw it
+					System.out.println("Error processing token during logout: " + e.getMessage());
+				}
+			}
 		}
+
+		// Always clear cookies regardless of token state
 		cookieService.deleteCookie(response, "access_token");
 		cookieService.deleteCookie(response, "refresh_token");
-
 	}
 
 }

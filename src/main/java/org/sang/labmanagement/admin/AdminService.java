@@ -39,7 +39,7 @@ public class AdminService {
 	public PageResponse<User>findUsers(int page,int size,String keyword,String role, Authentication connectedUser){
 		var user=(User)connectedUser.getPrincipal();
 		Pageable pageable= PageRequest.of(page,size);
-		Specification<User> spec = UserSpecification.getUsersByKeywordAndRole(keyword, role,user.getUsername());
+		Specification<User> spec = UserSpecification.getUsersByKeywordAndRole(keyword, role);
 
 		Page<User> users = userRepository.findAll(spec, pageable);
 		return PageResponse.<User>builder()
@@ -84,10 +84,12 @@ public class AdminService {
 		return savedUser;
 	}
 
+
 	public User updateUser(Long id, CreateUserByAdminRequest request) {
 		User user = userRepository.findById(id).orElseThrow(
 				() -> new OperationNotPermittedException("User not found")
 		);
+
 		user.setFirstName(request.getFirstName());
 		user.setLastName(request.getLastName());
 		user.setUsername(request.getUsername());
@@ -97,12 +99,18 @@ public class AdminService {
 		user.setEnabled(request.isEnabled());
 		user.setAccountLocked(request.isAccountLocked());
 
+		// Nếu có password gửi từ client thì set lại
+		if (request.getPassword() != null && !request.getPassword().isBlank()) {
+			user.setPassword(passwordEncoder.encode(request.getPassword()));
+		}
+
 		if (Role.valueOf(request.getRole().toUpperCase()) != user.getRole()) {
 			if (user.getRole() == Role.STUDENT && user.getStudent() != null) {
 				studentRepository.delete(user.getStudent());
 			} else if (user.getRole() == Role.TEACHER && user.getInstructor() != null) {
 				instructorRepository.delete(user.getInstructor());
 			}
+
 			if (Role.valueOf(request.getRole().toUpperCase()) == Role.STUDENT) {
 				Student student = Student.builder()
 						.studentId(request.getUsername())
@@ -110,15 +118,17 @@ public class AdminService {
 						.build();
 				studentRepository.save(student);
 			} else if (Role.valueOf(request.getRole().toUpperCase()) == Role.TEACHER) {
-				Instructor instructor=Instructor.builder()
+				Instructor instructor = Instructor.builder()
 						.instructorId(request.getUsername())
 						.user(user)
 						.build();
 				instructorRepository.save(instructor);
 			}
 		}
+
 		return userRepository.save(user);
 	}
+
 
 
 	public boolean canModifyUser(Role currentRole, Role targetRole) {

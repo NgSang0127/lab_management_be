@@ -153,6 +153,7 @@ public class AuthenticationServiceImplement implements AuthenticationService {
 
 		return AuthenticationResponse.builder()
 				.accessToken(jwtToken)
+				.refreshToken(refreshToken)
 				.message(messageSource.getMessage("login.success", null, locale))
 				.tfaEnabled(false)
 				.build();
@@ -198,13 +199,39 @@ public class AuthenticationServiceImplement implements AuthenticationService {
 
 
 	@Override
-	public void refreshToken(HttpServletRequest request, HttpServletResponse response) throws IOException {
+	public AuthenticationResponse refreshToken(HttpServletRequest request, HttpServletResponse response) throws IOException {
 		Locale locale = LocaleContextHolder.getLocale();
 		String username;
 		String refreshToken = cookieService.getCookieValue(request, "refresh_token");
+
+		// Debug log the headers and cookies
+		System.out.println("Request URI: " + request.getRequestURI());
+		System.out.println("Cookies present: " + (request.getCookies() != null ? request.getCookies().length : 0));
+		System.out.println("Authorization header: " + request.getHeader("Authorization"));
+
+		// Check for refresh token in request header if not in cookie
 		if (refreshToken == null) {
+			String authHeader = request.getHeader("Authorization");
+			if (authHeader != null && authHeader.startsWith("Bearer ")) {
+				refreshToken = authHeader.substring(7);
+				System.out.println("Using refresh token from Authorization header");
+			}
+
+			// Also check in a different header format that the frontend might be using
+			String refreshTokenHeader = request.getHeader("X-Refresh-Token");
+			if (refreshToken == null && refreshTokenHeader != null) {
+				refreshToken = refreshTokenHeader;
+				System.out.println("Using refresh token from X-Refresh-Token header");
+			}
+		} else {
+			System.out.println("Using refresh token from cookie");
+		}
+
+		if (refreshToken == null) {
+			System.out.println("No refresh token found in request");
 			throw new TokenException(messageSource.getMessage("token.missing",null,locale));
 		}
+
 		username = jwtService.extractUsername(refreshToken);
 
 		if (username == null) {
@@ -216,12 +243,10 @@ public class AuthenticationServiceImplement implements AuthenticationService {
 						,locale))
 		);
 
-
 		// Kiểm tra xem Refresh Token có bị thu hồi không
 		if (redisService.get("blacklist:refresh:" + refreshToken) != null) {
 			throw new TokenException(messageSource.getMessage("token.revoked",null,locale));
 		}
-
 
 		String storedRefreshToken = tokenService.getRefreshToken(username);
 		if (!tokenService.isRefreshTokenValid(username,storedRefreshToken)) {
@@ -239,19 +264,19 @@ public class AuthenticationServiceImplement implements AuthenticationService {
 			cookieService.addCookie(response, "access_token", accessToken, null);
 			cookieService.addCookie(response, "refresh_token", newRefreshToken, null);
 
+			// Build response with tokens
 
-			var authResponse = AuthenticationResponse.builder()
+			return AuthenticationResponse.builder()
 					.accessToken(accessToken)
 					.refreshToken(newRefreshToken)
+					.role(user.getRole())
+					.message("Token refreshed successfully")
 					.build();
-
-			response.setStatus(HttpStatus.OK.value());
-			response.setContentType(MediaType.APPLICATION_JSON_VALUE);
-			new ObjectMapper().writeValue(response.getOutputStream(), authResponse);
 		} else {
 			throw new TokenException(messageSource.getMessage("token.invalid",null,locale));
 		}
 	}
+
 
 
 	@Override

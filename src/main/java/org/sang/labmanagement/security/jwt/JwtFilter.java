@@ -32,6 +32,13 @@ public class JwtFilter extends OncePerRequestFilter {
 
 	private static final String AUTH_PATH = "/api/v1/auth";
 	private static final String WS_PATH = "/test";
+	private static final String LESSON_TIME_PATH = "/api/v1/lesson-time";
+	private static final String TIMETABLE_PUBLIC_PATH = "/api/v1/timetable/weeks-range";
+	private static final String TIMETABLE_WEEK_PATH = "/api/v1/timetable/by-week";
+	private static final String TIMETABLE_COURSE_DETAILS = "/api/v1/timetable/course-details";
+	private static final String TIMETABLE_SEMESTER = "/api/v1/timetable/semester";
+	private static final String ROOM="/api/v1/admin/rooms";
+	private static final String OPEN_API="/swagger-ui/index.html";
 
 	@Override
 	protected void doFilterInternal(
@@ -40,12 +47,39 @@ public class JwtFilter extends OncePerRequestFilter {
 			@NonNull FilterChain filterChain)
 			throws ServletException, IOException {
 
-		if (request.getServletPath().startsWith(WS_PATH) || request.getServletPath().contains(AUTH_PATH)) {
+		// Skip authentication for public endpoints
+		if (request.getServletPath().startsWith(WS_PATH) ||
+				request.getServletPath().contains(AUTH_PATH) ||
+				request.getServletPath().equals(LESSON_TIME_PATH) ||
+				request.getServletPath().equals(TIMETABLE_PUBLIC_PATH) ||
+				request.getServletPath().equals(TIMETABLE_WEEK_PATH) ||
+				request.getServletPath().equals(TIMETABLE_COURSE_DETAILS) ||
+				request.getServletPath().equals(TIMETABLE_SEMESTER) ||
+				request.getServletPath().equals(ROOM) ||
+				(request.getServletPath().equals(OPEN_API)))
+
+		{
 			filterChain.doFilter(request, response);
 			return;
 		}
 
+		// Get token from cookie first
 		String jwt = cookieService.getCookieValue(request, "access_token");
+
+		// If not found in cookie, check Authorization header
+		if (jwt == null || jwt.isEmpty()) {
+			final String authHeader = request.getHeader("Authorization");
+			if (authHeader != null && authHeader.startsWith("Bearer ")) {
+				jwt = authHeader.substring(7);
+			}
+		}
+
+		// If no token found anywhere, continue filter chain (will be caught by security config)
+		if (jwt == null || jwt.isEmpty()) {
+			filterChain.doFilter(request, response);
+			return;
+		}
+
 		try {
 			String username = jwtService.extractUsername(jwt);
 			if (username != null && SecurityContextHolder.getContext().getAuthentication() == null) {
@@ -59,11 +93,11 @@ public class JwtFilter extends OncePerRequestFilter {
 				}
 			}
 		} catch (ExpiredJwtException e) {
-			System.out.println("Access Token đã hết hạn: " + jwt);
+			System.out.println("Access Token expired: " + jwt);
 			sendUnauthorizedResponse(response, "Token expired");
 			return;
 		} catch (Exception e) {
-			System.out.println("Lỗi xác thực JWT: " + e.getMessage());
+			System.out.println("JWT Authentication error: " + e.getMessage());
 			sendUnauthorizedResponse(response, "Unauthorized");
 			return;
 		}

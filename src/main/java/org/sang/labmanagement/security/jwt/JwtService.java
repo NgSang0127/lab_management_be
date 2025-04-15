@@ -34,10 +34,6 @@ public class JwtService {
 	@Value("${application.security.jwt.refresh-token.expiration}")
 	private long refreshExpiration;
 
-//	@PostConstruct
-//	public void init() {
-//		System.out.println("JWT Secret Key: " + secretKey);
-//	}
 
 	public String generateToken(UserDetails userDetails) {
 		return generateToken(new HashMap<>(), userDetails);
