@@ -34,11 +34,11 @@ public interface AuthenticationService {
 
 	boolean changePassword(ChangePasswordRequest request,Authentication connectedUser);
 
-	String forgotPassword(ForgotPasswordRequest request) throws MessagingException;
+	AuthenticationResponse forgotPassword(ForgotPasswordRequest request) throws MessagingException;
 
-	String resetPassword(ResetPasswordRequest request) throws MessagingException;
+	AuthenticationResponse resetPassword(ResetPasswordRequest request) throws MessagingException;
 
-	String validateResetCode(ResetPasswordRequest request) throws MessagingException;
+	AuthenticationResponse validateResetCode(ResetPasswordRequest request) throws MessagingException;
 
 	boolean updateInformationUser(UpdateInformationUser request,Authentication connectedUser);
 

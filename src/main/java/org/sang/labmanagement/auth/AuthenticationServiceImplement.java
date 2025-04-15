@@ -31,7 +31,7 @@ import org.sang.labmanagement.tfa.TwoFactorAuthenticationService;
 import org.sang.labmanagement.user.Role;
 import org.sang.labmanagement.user.User;
 import org.sang.labmanagement.user.UserRepository;
-import org.springframework.beans.factory.annotation.Value;;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.MessageSource;
 import org.springframework.context.i18n.LocaleContextHolder;
 import org.springframework.http.HttpStatus;
@@ -317,11 +317,14 @@ public class AuthenticationServiceImplement implements AuthenticationService {
 
 	@Override
 	@Transactional
-	public String forgotPassword(ForgotPasswordRequest request) throws MessagingException {
+	public AuthenticationResponse forgotPassword(ForgotPasswordRequest request) throws MessagingException {
 		Locale locale = LocaleContextHolder.getLocale();
 		Optional<User> userOpt = userRepository.findByEmail(request.getEmail());
 		if (userOpt.isEmpty()) {
-			return messageSource.getMessage("forgot.email.not.exist",null,locale);
+			String message= messageSource.getMessage("forgot.email.not.exist",null,locale);
+			return AuthenticationResponse.builder()
+					.message(message)
+					.build();
 		}
 
 		User user = userOpt.get();
@@ -337,39 +340,56 @@ public class AuthenticationServiceImplement implements AuthenticationService {
 					locale
 			);
 		} catch (MessagingException e) {
-			return messageSource.getMessage("forgot.email.failed",null,locale);
+			String message= messageSource.getMessage("forgot.email.failed",null,locale);
+			return AuthenticationResponse.builder()
+					.message(message)
+					.build();
 		}
 
-		return messageSource.getMessage("forgot.email.sent",null,locale);
+		String successMessage= messageSource.getMessage("forgot.email.sent",null,locale);
+		return AuthenticationResponse.builder()
+				.message(successMessage)
+				.build();
 	}
 
 	@Override
-	public String validateResetCode(ResetPasswordRequest request) throws MessagingException {
+	public AuthenticationResponse validateResetCode(ResetPasswordRequest request) throws MessagingException {
 		Locale locale = LocaleContextHolder.getLocale();
 		String storedResetCode = emailService.getEmailCode(request.getEmail());
 
 		if (storedResetCode == null) {
-			return messageSource.getMessage("reset.code.invalid", null, locale);
+			String message= messageSource.getMessage("reset.code.invalid", null, locale);
+			return AuthenticationResponse.builder()
+					.message(message)
+					.build();
 		}
 
 		if (emailService.isEmailCodeExpired(request.getEmail())) {
 			emailService.deleteEmailCode(request.getEmail());
-			return messageSource.getMessage("reset.code.expired", null, locale);
+			String message= messageSource.getMessage("reset.code.expired", null, locale);
+			return AuthenticationResponse.builder()
+					.message(message)
+					.build();
 		}
 
-		emailService.revokeEmailCode(request.getEmail());
-		return messageSource.getMessage("reset.code.valid", null, locale);
+		String successMessage= messageSource.getMessage("reset.code.valid", null, locale);
+		return AuthenticationResponse.builder()
+				.message(successMessage)
+				.build();
 	}
 
 	@Override
 	@Transactional
-	public String resetPassword(ResetPasswordRequest request) throws MessagingException {
+	public AuthenticationResponse resetPassword(ResetPasswordRequest request) throws MessagingException {
 		Locale locale = LocaleContextHolder.getLocale();
 		String email = request.getEmail();
 		String storedResetCode = emailService.getEmailCode(email);
 
 		if (storedResetCode == null || !emailService.isEmailCodeMatch(email, request.getCode())) {
-			return messageSource.getMessage("reset.code.invalid_or_expired", null, locale);
+			String message= messageSource.getMessage("reset.code.invalid_or_expired", null, locale);
+			return AuthenticationResponse.builder()
+					.message(message)
+					.build();
 		}
 
 		User user = userRepository.findByEmail(email)
@@ -382,7 +402,10 @@ public class AuthenticationServiceImplement implements AuthenticationService {
 		userRepository.save(user);
 		emailService.deleteEmailCode(email);
 
-		return messageSource.getMessage("password.reset.success", null, locale);
+		String successMessage= messageSource.getMessage("password.reset.success", null, locale);
+		return AuthenticationResponse.builder()
+				.message(successMessage)
+				.build();
 	}
 
 	@Override

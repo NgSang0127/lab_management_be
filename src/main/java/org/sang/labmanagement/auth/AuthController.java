@@ -126,13 +126,10 @@ public class AuthController {
 			@ApiResponse(responseCode = "404", description = "User not found")
 	})
 	@PostMapping("/forgot-password")
-	public ResponseEntity<String> forgotPassword(@RequestBody ForgotPasswordRequest request) throws MessagingException {
-		try {
-			String result = authService.forgotPassword(request);
+	public ResponseEntity<AuthenticationResponse> forgotPassword(@RequestBody ForgotPasswordRequest request) throws MessagingException {
+			AuthenticationResponse result = authService.forgotPassword(request);
 			return ResponseEntity.ok(result);
-		} catch (Exception e) {
-			return ResponseEntity.badRequest().body(e.getMessage());
-		}
+
 	}
 
 	@Operation(summary = "Validate reset code", description = "Validates the password reset code")
@@ -141,13 +138,10 @@ public class AuthController {
 			@ApiResponse(responseCode = "400", description = "Invalid reset code")
 	})
 	@PostMapping("/validate-reset-code")
-	public ResponseEntity<String> validateResetCode(@RequestBody ResetPasswordRequest request) {
-		try {
-			String result = authService.validateResetCode(request);
+	public ResponseEntity<AuthenticationResponse> validateResetCode(@RequestBody ResetPasswordRequest request)
+			throws MessagingException {
+			AuthenticationResponse result = authService.validateResetCode(request);
 			return ResponseEntity.ok(result);
-		} catch (Exception e) {
-			return ResponseEntity.badRequest().body(e.getMessage());
-		}
 	}
 
 	@Operation(summary = "Reset password", description = "Resets user password using reset code")
@@ -156,13 +150,9 @@ public class AuthController {
 			@ApiResponse(responseCode = "400", description = "Invalid reset code or password")
 	})
 	@PostMapping("/reset-password")
-	public ResponseEntity<String> resetPassword(@RequestBody ResetPasswordRequest request) throws MessagingException {
-		try {
-			String result = authService.resetPassword(request);
+	public ResponseEntity<AuthenticationResponse> resetPassword(@RequestBody ResetPasswordRequest request) throws MessagingException {
+			AuthenticationResponse result = authService.resetPassword(request);
 			return ResponseEntity.ok(result);
-		} catch (Exception e) {
-			return ResponseEntity.badRequest().body(e.getMessage());
-		}
 	}
 
 	@Operation(summary = "Verify QR code", description = "Verifies two-factor authentication QR code")
