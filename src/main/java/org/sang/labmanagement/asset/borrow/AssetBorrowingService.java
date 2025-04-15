@@ -1,5 +1,6 @@
 package org.sang.labmanagement.asset.borrow;
 
+import io.lettuce.core.output.ScanOutput;
 import jakarta.mail.MessagingException;
 import java.time.LocalDateTime;
 import java.util.List;

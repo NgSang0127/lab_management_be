@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>Overdue Borrowing Notification</title>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        line-height: 1.6;
+        color: #333;
+        margin: 0;
+        padding: 0;
+        background-color: #f4f4f4;
+      }
+
+      .container {
+        width: 80%;
+        max-width: 600px;
+        margin: 20px auto;
+        background-color: #ffffff;
+        padding: 20px;
+        border-radius: 8px;
+        box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+      }
+
+      .header {
+        text-align: center;
+        padding-bottom: 20px;
+      }
+      .header img {
+        max-width: 150px;
+      }
+
+      h1 {
+        color: #333333;
+        font-size: 24px;
+        margin-bottom: 10px;
+        text-align: center;
+      }
+
+      .content {
+        padding: 20px;
+      }
+
+      .footer {
+        text-align: center;
+        padding: 10px;
+        font-size: 12px;
+        color: #777;
+      }
+
+      .button {
+        display: inline-block;
+        padding: 10px 20px;
+        margin: 10px 0;
+        background-color: #007bff;
+        color: #ffffff;
+        text-decoration: none;
+        border-radius: 5px;
+      }
+
+      .button:hover {
+        background-color: #0056b3;
+      }
+    </style>
+</head>
+<body>
+<div class="container">
+    <div class="header">
+        <img src="https://res.cloudinary.com/dsboloq8v/image/upload/v1742473811/logo_hwruel.png"
+             alt="Lab Management HCMIU">
+    </div>
+    <h1>Overdue Borrowing Notification</h1>
+    <div class="content">
+        <p>Dear <span th:text="${username}">User</span>,</p>
+        <p>We would like to inform you that your borrowing of the following asset is overdue:</p>
+        <ul>
+            <li><strong>Borrowing ID:</strong> <span th:text="${borrowingId}">#</span></li>
+            <li><strong>Asset Name:</strong> <span th:text="${assetName}">-</span></li>
+            <li><strong>Expected Return Date:</strong> <span th:text="${expectedReturnDate}">-</span></li>
+            <li><strong>Remarks:</strong> <span th:text="${remarks ?: 'None'}">None</span></li>
+        </ul>
+        <p>Please return the asset as soon as possible to avoid any further actions.</p>
+        <p>If you have any questions, contact us at <a href="mailto:contact@admin.com">contact@admin.com</a>.</p>
+        <a href="http://your-app-url/return-asset" class="button">Return Asset Now</a>
+    </div>
+    <div class="footer">
+        <p>&copy; 2025 Lab Management System. All rights reserved.</p>
+    </div>
+</div>
+</body>
+</html>

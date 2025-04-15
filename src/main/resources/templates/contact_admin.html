@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>New Contact Form Submission</title>
+    <style>
+      body {
+        font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+        background-color: #f9f9f9;
+        margin: 0;
+        padding: 0;
+      }
+      .container {
+        max-width: 600px;
+        margin: 30px auto;
+        background: #fff;
+        padding: 30px;
+        border-radius: 8px;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+      }
+      .header {
+        text-align: center;
+        padding-bottom: 20px;
+      }
+      .header img {
+        max-width: 150px;
+      }
+      h2 {
+        color: #dc3545;
+        margin-bottom: 20px;
+      }
+      .info {
+        font-size: 15px;
+        color: #333;
+        line-height: 1.6;
+      }
+      .info strong {
+        color: #007bff;
+      }
+      .footer {
+        margin-top: 30px;
+        font-size: 12px;
+        color: #999;
+      }
+    </style>
+</head>
+<body>
+<div class="container">
+    <div class="header">
+        <img src="https://res.cloudinary.com/dsboloq8v/image/upload/v1742473811/logo_hwruel.png" alt="Lab Management Logo">
+    </div>
+    <h2>📩 New Contact Form Received</h2>
+    <div class="info">
+        <p><strong>Name:</strong> <span th:text="${name}">[Name]</span></p>
+        <p><strong>Email:</strong> <span th:text="${email}">[Email]</span></p>
+        <p><strong>Message:</strong></p>
+        <p th:text="${message}">[Message]</p>
+    </div>
+    <div class="footer">
+        <p>This message was sent automatically from the contact form on your website.</p>
+        <p th:text="${website_url}">https://your-website.com</p>
+    </div>
+</div>
+</body>
+</html>

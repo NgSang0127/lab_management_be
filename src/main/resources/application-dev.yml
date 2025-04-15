@@ -10,6 +10,7 @@ spring:
         enabled: false
       host: localhost
       port: 6379
+      database: 0
   jpa:
     hibernate:
       ddl-auto: update
@@ -49,16 +50,18 @@ spring:
     prefix: classpath:/templates/
     suffix: .html
 application:
+  activity:
+    inactivity-timeout-minutes: 30
   security:
     jwt:
-      secret-key: ${JWT_SECRET_KEY}
+      secret-key: 404E635266426A586E3272357538782F213F4428472B4B6250645367566B5920
       expiration: 8640000 # a day
       refresh-token:
         expiration: 604800000 #7 days
   cors:
     origins: "http://localhost:5173,http://localhost:5174"
   mailing:
-    expiration: 300 # 5 minutes
+    expiration: 300000 # 5 minutes
     backend:
       activation-url: http://localhost:8080/api/v1/auth/activate-account
     success-url: http://localhost:5173/success?activated=true
@@ -80,3 +83,6 @@ server:
       enabled: true
       force: true
 
+app:
+  email:
+    admin: admin@gmail.com

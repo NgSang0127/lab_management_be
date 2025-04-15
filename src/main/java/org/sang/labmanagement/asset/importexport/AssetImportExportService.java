@@ -68,7 +68,6 @@ public class AssetImportExportService {
 				Asset asset = Asset.builder()
 						.name(record[0])
 						.description(record[1])
-						.serialNumber(record[2])
 						.status(AssetStatus.valueOf(record[3]))
 						.purchaseDate(LocalDateTime.parse(record[4], DATE_TIME_FORMATTER))
 						.price(Double.parseDouble(record[5]))
@@ -107,7 +106,6 @@ public class AssetImportExportService {
 			String[] data = {
 					escapeSpecialCharacters(asset.getName()),
 					escapeSpecialCharacters(asset.getDescription()),
-					escapeSpecialCharacters(asset.getSerialNumber()),
 					asset.getStatus().name(),
 					asset.getPurchaseDate().format(DATE_TIME_FORMATTER),
 					asset.getPrice().toString(),
@@ -163,7 +161,6 @@ public class AssetImportExportService {
 				Asset asset = Asset.builder()
 						.name(getCellValueAsString(currentRow.getCell(0)))
 						.description(getCellValueAsString(currentRow.getCell(1)))
-						.serialNumber(getCellValueAsString(currentRow.getCell(2)))
 						.status(AssetStatus.valueOf(getCellValueAsString(currentRow.getCell(3))))
 						.purchaseDate(LocalDateTime.parse(getCellValueAsString(currentRow.getCell(4)), DATE_TIME_FORMATTER))
 						.location(location)
@@ -254,7 +251,6 @@ public class AssetImportExportService {
 			String[] data = {
 					asset.getName(),
 					asset.getDescription(),
-					asset.getSerialNumber(),
 					asset.getStatus().name(),
 					asset.getPurchaseDate().format(DATE_TIME_FORMATTER),
 					asset.getPrice().toString(),

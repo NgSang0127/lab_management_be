@@ -1,10 +1,11 @@
 package org.sang.labmanagement.asset;
 
-
 import jakarta.validation.constraints.*;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.Set;
 import lombok.Data;
-
+import org.sang.labmanagement.asset.configuration.AssetConfigDTO;
 
 @Data
 public class AssetDTO {
@@ -18,8 +19,6 @@ public class AssetDTO {
 
 	private String image;
 
-	@NotBlank(message = "Serial number is required")
-	private String serialNumber;
 
 	@NotNull(message = "Asset status is required")
 	private AssetStatus status;
@@ -35,6 +34,22 @@ public class AssetDTO {
 
 	@NotNull(message = "Location ID is required")
 	private Long locationId;
+
+	private Long roomId;
+
+	private Integer quantity;
+
+	private Integer warranty;
+
+	private Integer operationYear;
+
+	private LocalDate operationStartDate;
+
+	private OperationTime operationTime;
+
+	private Integer lifeSpan;
+
+	private Set<AssetConfigDTO> configurations;
 
 	private Long assignedUserId;
 

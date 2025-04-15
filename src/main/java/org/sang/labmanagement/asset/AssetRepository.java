@@ -12,9 +12,6 @@ import org.springframework.stereotype.Repository;
 
 @Repository
 public interface AssetRepository extends JpaRepository<Asset,Long>, JpaSpecificationExecutor<Asset> {
-	Optional<Asset>findBySerialNumber(String serialNumber);
-
-	boolean existsBySerialNumber(String serialNumber);
 
 	Page<Asset> findByAssignedUserId(Long userId,Pageable pageable);
 

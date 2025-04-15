@@ -1,5 +1,7 @@
 package org.sang.labmanagement.config;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import java.time.Duration;
 import org.springframework.cache.CacheManager;
 import org.springframework.cache.annotation.EnableCaching;
@@ -20,15 +22,24 @@ public class RedisConfig {
 
 	@Bean
 	public RedisSerializer<Object> redisSerializer() {
-		return new GenericJackson2JsonRedisSerializer();
+		ObjectMapper objectMapper = new ObjectMapper();
+		objectMapper.registerModule(new JavaTimeModule());
+		objectMapper.configure(com.fasterxml.jackson.databind.SerializationFeature.WRITE_DATES_AS_TIMESTAMPS, false);
+		// Bật type metadata để hỗ trợ generic types như PageResponse<T>
+		objectMapper.activateDefaultTyping(
+				objectMapper.getPolymorphicTypeValidator(),
+				ObjectMapper.DefaultTyping.NON_FINAL
+		);
+		return new GenericJackson2JsonRedisSerializer(objectMapper);
 	}
 
 	@Bean
 	public RedisCacheConfiguration redisCacheConfiguration() {
 		return RedisCacheConfiguration.defaultCacheConfig()
-				.entryTtl(Duration.ofHours(1)) // TTL là 1 hour
+				.entryTtl(Duration.ofHours(1))
 				.serializeKeysWith(RedisSerializationContext.SerializationPair.fromSerializer(new StringRedisSerializer()))
-				.serializeValuesWith(RedisSerializationContext.SerializationPair.fromSerializer(redisSerializer()));
+				.serializeValuesWith(RedisSerializationContext.SerializationPair.fromSerializer(redisSerializer()))
+				.disableCachingNullValues();
 	}
 
 	@Bean
@@ -37,22 +48,16 @@ public class RedisConfig {
 				.cacheDefaults(redisCacheConfiguration())
 				.build();
 	}
+
 	@Bean
 	public RedisTemplate<String, Object> redisTemplate(RedisConnectionFactory redisConnectionFactory) {
 		RedisTemplate<String, Object> template = new RedisTemplate<>();
 		template.setConnectionFactory(redisConnectionFactory);
-
-		// Sử dụng String cho Key và JSON cho Value
 		template.setKeySerializer(new StringRedisSerializer());
-		template.setValueSerializer(new GenericJackson2JsonRedisSerializer());
-
+		template.setValueSerializer(redisSerializer());
 		template.setHashKeySerializer(new StringRedisSerializer());
-		template.setHashValueSerializer(new GenericJackson2JsonRedisSerializer());
-
+		template.setHashValueSerializer(redisSerializer());
 		template.afterPropertiesSet();
 		return template;
 	}
-
-
 }
-
