@@ -28,10 +28,10 @@ spring:
     serialization:
       write-dates-as-timestamps: true
   mail:
-    host: ${EMAIL_HOSTNAME}
+    host: smtp.gmail.com
     port: 587
-    username: ${EMAIL_USERNAME}
-    password: ${EMAIL_PASSWORD}
+    username: testdev01112002@gmail.com
+    password: sgxk lrzf sgek lpyd
     properties:
       mail:
         smtp:
@@ -48,6 +48,8 @@ spring:
     suffix: .html
     mode: HTML
 application:
+  activity:
+    inactivity-timeout-minutes: 30
   security:
     jwt:
       secret-key: 404E635266426A586E3272357538782F213F4428472B4B6250645367566B5920

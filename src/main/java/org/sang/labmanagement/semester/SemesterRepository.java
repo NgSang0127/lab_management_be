@@ -15,4 +15,5 @@ public interface SemesterRepository extends JpaRepository<Semester,Long> {
 	@Query("SELECT s FROM Semester s ORDER BY s.startDate DESC")
 	List<Semester> findTop4ByOrderByStartDateDesc(Pageable pageable);
 
+	boolean existsByAcademicYear(String academicYear);
 }

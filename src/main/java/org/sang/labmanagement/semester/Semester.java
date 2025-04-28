@@ -38,9 +38,5 @@ public class Semester {
 
 	private LocalDate endDate;
 
-	@OneToMany(mappedBy = "semester", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
-	@JsonIgnore
-	private List<Timetable> timetables;
-
 
 }
