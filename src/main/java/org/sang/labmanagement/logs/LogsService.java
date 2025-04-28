@@ -6,6 +6,7 @@ import java.util.List;
 import org.sang.labmanagement.common.PageResponse;
 import org.sang.labmanagement.logs.dto.CourseLogStatistics;
 import org.sang.labmanagement.logs.dto.DailyLogStatistics;
+import org.sang.labmanagement.logs.dto.LabUsageStatisticsDTO;
 import org.springframework.security.core.Authentication;
 
 public interface LogsService {
@@ -25,4 +26,6 @@ public interface LogsService {
 	List<DailyLogStatistics> getDailyLogStatistics(LocalDate startDate, LocalDate endDate);
 
 	List<CourseLogStatistics> getCourseLogStatistics(LocalDate startDate, LocalDate endDate);
+
+	List<LabUsageStatisticsDTO> getUsageStatistics(LocalDate startDate,LocalDate endDate);
 }
