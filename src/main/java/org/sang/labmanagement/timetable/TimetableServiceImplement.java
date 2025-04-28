@@ -31,8 +31,13 @@ import org.apache.poi.ss.usermodel.Sheet;
 import org.apache.poi.ss.usermodel.Workbook;
 import org.apache.poi.ss.usermodel.WorkbookFactory;
 import org.apache.poi.ss.util.CellRangeAddress;
+import org.sang.labmanagement.common.PageResponse;
 import org.sang.labmanagement.course.Course;
 import org.sang.labmanagement.course.CourseRepository;
+import org.sang.labmanagement.course.CourseRequestDTO;
+import org.sang.labmanagement.exception.ResourceAlreadyExistsException;
+import org.sang.labmanagement.exception.ResourceNotFoundException;
+import org.sang.labmanagement.exception.TimetableConflictException;
 import org.sang.labmanagement.room.Room;
 import org.sang.labmanagement.room.RoomRepository;
 import org.sang.labmanagement.room.RoomStatus;
@@ -41,13 +46,17 @@ import org.sang.labmanagement.semester.SemesterRepository;
 import org.sang.labmanagement.timetable.lesson_time.LessonTime;
 import org.sang.labmanagement.timetable.lesson_time.LessonTimeRepository;
 import org.sang.labmanagement.timetable.request.CreateTimetableRequest;
+import org.sang.labmanagement.timetable.request.TimetableDTO;
 import org.sang.labmanagement.user.Role;
 import org.sang.labmanagement.user.User;
 import org.sang.labmanagement.user.UserRepository;
 import org.sang.labmanagement.user.instructor.Department;
 import org.sang.labmanagement.user.instructor.Instructor;
 import org.sang.labmanagement.user.instructor.InstructorRepository;
+import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -74,8 +83,7 @@ public class TimetableServiceImplement implements TimetableService {
 	private final SemesterRepository semesterRepository;
 	private final LessonTimeRepository lessonTimeRepository;
 	private final PasswordEncoder passwordEncoder;
-
-
+	private final TimetableMapper timetableMapper;
 
 	@Override
 	public List<Timetable> getAllTimetableByWeek(LocalDate startDate, LocalDate endDate) {
@@ -105,9 +113,9 @@ public class TimetableServiceImplement implements TimetableService {
 	public Map<String, String> getFirstAndLastWeek(Long semesterId) {
 		List<Timetable> timetables = timetableRepository.findBySemesterId(semesterId); // Tìm thời khóa biểu theo kỳ học
 
-		for (Timetable timetable: timetables
-			 ) {
-			System.out.println("timetable"+timetable);
+		for (Timetable timetable : timetables
+		) {
+			System.out.println("timetable" + timetable);
 		}
 		System.out.println("Total timetables found: " + timetables.size());
 
@@ -151,7 +159,6 @@ public class TimetableServiceImplement implements TimetableService {
 		return result;
 	}
 
-
 	// Hàm để lấy ngày bắt đầu của tuần từ một LocalDate (Thứ Hai)
 	public LocalDate getStartOfWeek(LocalDate date) {
 		return date.with(DayOfWeek.MONDAY); // Trả về ngày Thứ Hai của tuần
@@ -164,21 +171,21 @@ public class TimetableServiceImplement implements TimetableService {
 
 	@Override
 	public boolean cancelTimetableOnDate(LocalDate cancelDate, int startLesson, String roomName, Long timetableId) {
-		Timetable timetable=timetableRepository.findById(timetableId).orElseThrow(
-				()->new IllegalArgumentException("Not found timetable with id:"+timetableId)
+		Timetable timetable = timetableRepository.findById(timetableId).orElseThrow(
+				() -> new IllegalArgumentException("Not found timetable with id:" + timetableId)
 		);
 		List<LocalDate[]> studyPeriods = extractStudyPeriods(timetable.getStudyTime());
 
 		//Kiễm tra xem ngày cần hủy có nằm trong bất kỳ khoảng thời gian nào không
-		for(LocalDate[] period :studyPeriods){
-			LocalDate startDate=period[0];
-			LocalDate endDate=period[1];
+		for (LocalDate[] period : studyPeriods) {
+			LocalDate startDate = period[0];
+			LocalDate endDate = period[1];
 
 			if ((cancelDate.isEqual(startDate) || cancelDate.isAfter(startDate))
 					&& (cancelDate.isEqual(endDate) || cancelDate.isBefore(endDate))
 			) {
 
-				if(timetable.getStartLesson()==startLesson && timetable.getRoom().getName().equals(roomName)){
+				if (timetable.getStartLesson() == startLesson && timetable.getRoom().getName().equals(roomName)) {
 					timetable.getCancelDates().add(cancelDate);
 					timetableRepository.save(timetable);
 					return true;
@@ -230,13 +237,11 @@ public class TimetableServiceImplement implements TimetableService {
 		return timetable.getCancelDates().contains(date);
 	}
 
-
-
 	@Override
-	public Timetable getTimetableByCourse(String courseId, String NH, String TH,String studyTime) {
+	public Timetable getTimetableByCourse(String courseId, String NH, String TH, String studyTime) {
 		// Tìm timetable dựa trên thông tin môn học
-		System.out.println(timetableRepository.findByCourseAndStudyTime(courseId, NH, TH,studyTime));
-		return timetableRepository.findByCourseAndStudyTime(courseId, NH, TH,studyTime);
+		System.out.println(timetableRepository.findByCourseAndStudyTime(courseId, NH, TH, studyTime));
+		return timetableRepository.findByCourseAndStudyTime(courseId, NH, TH, studyTime);
 	}
 
 	@Override
@@ -245,42 +250,98 @@ public class TimetableServiceImplement implements TimetableService {
 		return timetableRepository.findByTimetableName(timetableName);
 	}
 
-
 	@Override
+	@Transactional
 	public Timetable createTimetable(CreateTimetableRequest request) {
+		// Validation
+		if (request.getTimetableName() == null || request.getTimetableName().trim().isEmpty()) {
+			throw new IllegalArgumentException("Timetable name is required");
+		}
+		if (request.getStartLesson() > request.getEndLesson()) {
+			throw new IllegalArgumentException("Start lesson (" + request.getStartLesson() +
+					") must be less than or equal to end lesson (" + request.getEndLesson() + ")");
+		}
+		if (request.getDate() == null) {
+			throw new IllegalArgumentException("Date is required");
+		}
+
+		// Tìm Room
 		Room room = roomRepository.findByName(request.getRoomName());
+		if (room == null) {
+			throw new ResourceNotFoundException("Room not found with name: " + request.getRoomName());
+		}
 
-		Instructor instructor = instructorRepository.findByInstructorId(request.getInstructorId()).orElseThrow(
-				() -> new RuntimeException("Instructor not found")
-		);
+		// Tìm Instructor
+		Instructor instructor = instructorRepository.findById(request.getInstructorId())
+				.orElseThrow(() -> new ResourceNotFoundException("Instructor not found with ID: " + request.getInstructorId()));
 
+		// Tìm LessonTime
 		LessonTime startTime = lessonTimeRepository.findByLessonNumber(request.getStartLesson());
-
+		if (startTime == null) {
+			throw new IllegalArgumentException("Start LessonTime not found with number: " + request.getStartLesson());
+		}
 		LessonTime endTime = lessonTimeRepository.findByLessonNumber(request.getEndLesson());
+		if (endTime == null) {
+			throw new IllegalArgumentException("End LessonTime not found with number: " + request.getEndLesson());
+		}
 
-		LocalDate date = request.getDate();
+		// Kiểm tra trùng lặp timetableName
+		if (request.getSemesterId() != null) {
+			Optional<Timetable> existingTimetable = timetableRepository
+					.findByTimetableNameAndSemesterId(request.getTimetableName(), request.getSemesterId());
+			if (existingTimetable.isPresent()) {
+				throw new ResourceAlreadyExistsException("Timetable with name " + request.getTimetableName() +
+						" in semester " + request.getSemesterId() + " already exists");
+			}
+		}
 
+		// Kiểm tra xung đột
+		List<Timetable> conflictingTimetables = timetableRepository.findConflictingTimetables(
+				request.getSemesterId(),
+				DayOfWeek.valueOf(request.getDate().getDayOfWeek().name()), // Chuyển thành String thay vì DayOfWeek
+				room.getId(),
+				request.getStartLesson(),
+				request.getEndLesson()
+		);
 		DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd/MM/yyyy");
-
-
-		String formattedDate = date.format(formatter);
+		String newStudyTime = request.getDate().format(formatter);
+		for (Timetable existing : conflictingTimetables) {
+			// Kiểm tra xem ngày request.getDate() có nằm trong studyTime của lịch hiện có
+			List<LocalDate[]> existingPeriods = extractStudyPeriods(existing.getStudyTime());
+			for (LocalDate[] period : existingPeriods) {
+				LocalDate startDate = period[0];
+				LocalDate endDate = period.length > 1 ? period[1] : startDate;
+				if (!request.getDate().isBefore(startDate) && !request.getDate().isAfter(endDate)) {
+					throw new TimetableConflictException("Timetable conflicts with existing timetable " +
+							existing.getTimetableName() + " in room " + existing.getRoom().getName() +
+							" on " + request.getDate().getDayOfWeek() + " from lesson " +
+							request.getStartLesson() + " to " + request.getEndLesson());
+				}
+			}
+		}
 
 		Timetable timetable = Timetable.builder()
 				.timetableName(request.getTimetableName())
 				.room(room)
+				.instructor(instructor)
 				.startLesson(startTime.getLessonNumber())
 				.startLessonTime(startTime)
 				.endLessonTime(endTime)
-				.instructor(instructor)
 				.totalLessonDay(request.getEndLesson() - request.getStartLesson() + 1)
-				.dayOfWeek(date.getDayOfWeek())
-				.studyTime(formattedDate)
+				.dayOfWeek(request.getDate().getDayOfWeek())
+				.studyTime(newStudyTime) // Lưu ngày duy nhất dưới dạng chuỗi
 				.description(request.getDescription())
 				.build();
 
+		// Liên kết Semester nếu có
+		if (request.getSemesterId() != null) {
+			Semester semester = semesterRepository.findById(request.getSemesterId())
+					.orElseThrow(() -> new ResourceNotFoundException("Semester not found with ID: " + request.getSemesterId()));
+			timetable.setSemester(semester);
+		}
+
 		return timetableRepository.save(timetable);
 	}
-
 
 	@Override
 	@Transactional
@@ -378,7 +439,6 @@ public class TimetableServiceImplement implements TimetableService {
 					numberOfStudents = previousNumberOfStudents;
 				}
 
-
 				// Xử lý FullName giảng viên
 				String fullName = getStringCellValue(row, 21).trim();
 				String[] names = getFirstNameAndLastNameFromFullName(fullName);
@@ -440,24 +500,24 @@ public class TimetableServiceImplement implements TimetableService {
 					savedCourse = courseRepository.save(savedCourse);
 					System.out.println("New course saved: " + savedCourse.getCode() + " - " + savedCourse.getName());
 				} else {
-					System.out.println("Course already exists: " + savedCourse.getCode() + " - " + savedCourse.getName());
+					System.out.println(
+							"Course already exists: " + savedCourse.getCode() + " - " + savedCourse.getName());
 				}
-
 
 				// Lấy thông tin DayOfWeek từ Excel
 				int dayOfWeekNumber = (int) getNumericCellValue(row, 12);
 				DayOfWeek dayOfWeek = convertDayToDayOfWeekFromExcel(dayOfWeekNumber);
 				int startLesson = (int) getNumericCellValue(row, 13);
-				String studyTime=getStringCellValue(row, 16);
+				String studyTime = getStringCellValue(row, 16);
 
 				assert currentRoom != null;
 				Optional<Timetable> existingTimetable = timetableRepository.findByClassIdAndRoomNameAndStudyTimeAndTHAndNH(
-						classId,currentRoom.getName(),studyTime,TH,NH);
-				if(existingTimetable.isPresent()) {
+						classId, currentRoom.getName(), studyTime, TH, NH);
+				if (existingTimetable.isPresent()) {
 					System.out.println(
 							"Timetable already exists for Day: " + dayOfWeek + ", Start Lesson: " + startLesson
 									+ ", Class ID: " + classId);
-				} else{
+				} else {
 					// Tạo Timetable
 					Timetable timetable = Timetable.builder()
 							.courses(Set.of(savedCourse))
@@ -469,6 +529,7 @@ public class TimetableServiceImplement implements TimetableService {
 							.dayOfWeek(dayOfWeek)
 							.totalLessonDay((int) getNumericCellValue(row, 14))
 							.room(currentRoom)
+							.semester(currentSemester)
 							.studyTime(studyTime)
 							.build();
 
@@ -508,16 +569,15 @@ public class TimetableServiceImplement implements TimetableService {
 				LocalDate endDate = LocalDate.parse(firstAndLastWeek.get("lastWeekEnd"), formatter);
 				currentSemester.setEndDate(endDate);
 
-
 				semesterRepository.save(currentSemester);
 			}
-	}
+		}
 		return timetables;
 	}
 
 	@Override
 	public List<Semester> getFourSemesterRecent() {
-		return semesterRepository.findTop4ByOrderByStartDateDesc(PageRequest.of(0,4));
+		return semesterRepository.findTop4ByOrderByStartDateDesc(PageRequest.of(0, 4));
 	}
 
 	// HELPER METHOD
@@ -627,7 +687,8 @@ public class TimetableServiceImplement implements TimetableService {
 			}
 
 			if (semesterName != null) {
-				Optional<Semester> existingSemester = semesterRepository.findByNameAndAcademicYear(semesterName, academicYear);
+				Optional<Semester> existingSemester = semesterRepository.findByNameAndAcademicYear(semesterName,
+						academicYear);
 				if (existingSemester.isPresent()) {
 					currentSemester = existingSemester.get();
 				} else {
@@ -658,7 +719,8 @@ public class TimetableServiceImplement implements TimetableService {
 				periods.add(new LocalDate[]{startDate, endDate});
 			} else if (dates.length == 1) { // Trường hợp chỉ có một ngày
 				LocalDate singleDate = LocalDate.parse(dates[0].trim(), DateTimeFormatter.ofPattern("dd/MM/yyyy"));
-				periods.add(new LocalDate[]{singleDate, singleDate}); // Tạo một khoảng mà ngày bắt đầu và kết thúc đều là cùng một ngày
+				periods.add(new LocalDate[]{singleDate,
+						singleDate}); // Tạo một khoảng mà ngày bắt đầu và kết thúc đều là cùng một ngày
 			}
 		}
 
@@ -754,7 +816,9 @@ public class TimetableServiceImplement implements TimetableService {
 	}
 
 	private String getStringCellValue(Cell cell) {
-		if (cell == null) return "";
+		if (cell == null) {
+			return "";
+		}
 		switch (cell.getCellType()) {
 			case STRING:
 				return cell.getStringCellValue();
@@ -779,7 +843,6 @@ public class TimetableServiceImplement implements TimetableService {
 				return "";
 		}
 	}
-
 
 	private void extractLessonTimes(Row row) {
 		String[] lessonData = getStringCellValue(row, 0).split("\\+");
@@ -836,7 +899,8 @@ public class TimetableServiceImplement implements TimetableService {
 		boolean exists = lessonTimeRepository.existsByLessonNumberAndStartTimeAndEndTime(lessonNum, startTime, endTime);
 
 		if (exists) {
-			System.out.println("LessonTime already exists: Tiết " + lessonNum + " (" + startTime + " - " + endTime + ")");
+			System.out.println(
+					"LessonTime already exists: Tiết " + lessonNum + " (" + startTime + " - " + endTime + ")");
 			return;
 		}
 
@@ -856,4 +920,317 @@ public class TimetableServiceImplement implements TimetableService {
 		lessonTimeList.clear();
 	}
 
+
+	private boolean periodsOverlap(LocalDate[] period1, LocalDate[] period2) {
+		LocalDate start1 = period1[0];
+		LocalDate end1 = period1[1];
+		LocalDate start2 = period2[0];
+		LocalDate end2 = period2[1];
+		return !end1.isBefore(start2) && !end2.isBefore(start1);
+	}
+
+	private List<LocalDate[]> filterCancelDates(List<LocalDate[]> periods, Set<LocalDate> cancelDates) {
+		if (cancelDates == null || cancelDates.isEmpty()) {
+			return periods;
+		}
+
+		List<LocalDate[]> filteredPeriods = new ArrayList<>();
+		for (LocalDate[] period : periods) {
+			LocalDate startDate = period[0];
+			LocalDate endDate = period[1];
+
+			// Tạo danh sách các ngày trong khoảng thời gian
+			List<LocalDate> validDates = new ArrayList<>();
+			LocalDate currentDate = startDate;
+			while (!currentDate.isAfter(endDate)) {
+				if (!cancelDates.contains(currentDate)) {
+					validDates.add(currentDate);
+				}
+				currentDate = currentDate.plusDays(1);
+			}
+
+			// Tạo các khoảng thời gian mới từ các ngày hợp lệ
+			if (!validDates.isEmpty()) {
+				LocalDate rangeStart = validDates.get(0);
+				LocalDate prevDate = rangeStart;
+				for (int i = 1; i < validDates.size(); i++) {
+					LocalDate currDate = validDates.get(i);
+					if (!currDate.minusDays(1).equals(prevDate)) {
+						filteredPeriods.add(new LocalDate[]{rangeStart, prevDate});
+						rangeStart = currDate;
+					}
+					prevDate = currDate;
+				}
+				filteredPeriods.add(new LocalDate[]{rangeStart, prevDate});
+			}
+		}
+
+		return filteredPeriods;
+	}
+
+	private String generateTimetableName(List<CourseRequestDTO> courses, Semester semester) {
+		if (courses != null && !courses.isEmpty()) {
+			String courseName = courses.get(0).getName() != null ? courses.get(0).getName() : "Course";
+			return String.format("%s_%s_%s", courseName, semester.getName(), LocalDate.now().getYear());
+		}
+		return String.format("Timetable_%s_%s", semester.getName(), LocalDate.now().getYear());
+	}
+
+	@Transactional
+	public Timetable createTimetableAdmin(TimetableDTO request) {
+		// Validation
+		request.validate();
+
+		// Kiểm tra trùng lặp Timetable
+		String timetableName = request.getTimetableName();
+		if (timetableName != null) {
+			Optional<Timetable> existingTimetable = timetableRepository
+					.findByTimetableNameAndSemesterId(timetableName, request.getSemesterId());
+			if (existingTimetable.isPresent()) {
+				throw new ResourceAlreadyExistsException("Timetable with name " + timetableName +
+						" in semester " + request.getSemesterId() + " already exists");
+			}
+		}
+
+		// Lấy LessonTime để xác định startLesson và khoảng tiết
+		LessonTime startLessonTime = lessonTimeRepository.findById(request.getStartLessonTimeId())
+				.orElseThrow(() -> new IllegalArgumentException("Start LessonTime not found with ID: " + request.getStartLessonTimeId()));
+		LessonTime endLessonTime = lessonTimeRepository.findById(request.getEndLessonTimeId())
+				.orElseThrow(() -> new IllegalArgumentException("End LessonTime not found with ID: " + request.getEndLessonTimeId()));
+		int startLessonNumber = startLessonTime.getLessonNumber();
+		int endLessonNumber = endLessonTime.getLessonNumber();
+
+		// Kiểm tra startLessonNumber <= endLessonNumber
+		if (startLessonNumber > endLessonNumber) {
+			throw new IllegalArgumentException("Start lesson number (" + startLessonNumber + ") must be less than or equal to end lesson number (" + endLessonNumber + ")");
+		}
+
+		// Kiểm tra xung đột
+		List<Timetable> conflictingTimetables = timetableRepository.findConflictingTimetables(
+				request.getSemesterId(), request.getDayOfWeek(), request.getRoomId(),
+				startLessonNumber, endLessonNumber);
+		if (!conflictingTimetables.isEmpty()) {
+			List<LocalDate[]> newPeriods = extractStudyPeriods(request.getStudyTime());
+			for (Timetable existing : conflictingTimetables) {
+				List<LocalDate[]> existingPeriods = extractStudyPeriods(existing.getStudyTime());
+				for (LocalDate[] newPeriod : newPeriods) {
+					for (LocalDate[] existingPeriod : existingPeriods) {
+						if (periodsOverlap(newPeriod, existingPeriod)) {
+							throw new IllegalArgumentException("Timetable conflicts with existing timetable " +
+									existing.getTimetableName() + " in room " + existing.getRoom().getId() +
+									" on " + request.getDayOfWeek() + " from lesson " + startLessonNumber +
+									" to " + endLessonNumber);
+						}
+					}
+				}
+			}
+		}
+
+		// Tìm Semester và Instructor
+		Semester semester = semesterRepository.findById(request.getSemesterId())
+				.orElseThrow(() -> new ResourceNotFoundException("Semester not found with ID: " + request.getSemesterId()));
+		Instructor instructor = instructorRepository.findById(request.getInstructorId())
+				.orElseThrow(() -> new ResourceNotFoundException("Instructor not found with ID: " + request.getInstructorId()));
+
+		// Xử lý Courses
+		Set<Course> courses = new HashSet<>();
+		if (request.getCourses() != null && !request.getCourses().isEmpty()) {
+			for (CourseRequestDTO courseDTO : request.getCourses()) {
+				Course course;
+				if (courseDTO.getId() != null) { // TH2: Course có sẵn
+					course = courseRepository.findById(courseDTO.getId())
+							.orElseThrow(() -> new ResourceNotFoundException("Course not found with ID: " + courseDTO.getId()));
+				} else { // TH3: Tạo mới Course
+					Instructor courseInstructor = instructorRepository.findById(courseDTO.getInstructorId())
+							.orElseThrow(() -> new ResourceNotFoundException("Instructor not found with ID: " + courseDTO.getInstructorId()));
+					course = Course.builder()
+							.name(courseDTO.getName())
+							.code(courseDTO.getCode())
+							.NH(courseDTO.getNH())
+							.TH(courseDTO.getTH())
+							.description(courseDTO.getDescription())
+							.credits(courseDTO.getCredits())
+							.instructor(courseInstructor)
+							.enrollments(new HashSet<>())
+							.timetables(new HashSet<>())
+							.build();
+					course = courseRepository.save(course);
+				}
+				courses.add(course);
+			}
+		}
+
+		// Sinh timetableName nếu không cung cấp
+		if (timetableName == null) {
+			timetableName = generateTimetableName(request.getCourses(), semester);
+		}
+
+		Timetable timetable = Timetable.builder()
+				.timetableName(timetableName)
+				.semester(semester)
+				.instructor(instructor)
+				.dayOfWeek(request.getDayOfWeek())
+				.numberOfStudents(request.getNumberOfStudents() != null ? request.getNumberOfStudents() : 0)
+				.startLesson(startLessonNumber)
+				.totalLessonSemester(request.getTotalLessonSemester() != null ? request.getTotalLessonSemester() : 0)
+				.totalLessonDay(request.getTotalLessonDay() != null ? request.getTotalLessonDay() : 0)
+				.classId(request.getClassId())
+				.studyTime(request.getStudyTime())
+				.cancelDates(request.getCancelDates() != null ? request.getCancelDates() : new HashSet<>())
+				.description(request.getDescription())
+				.courses(courses)
+				.startLessonTime(startLessonTime)
+				.endLessonTime(endLessonTime)
+				.build();
+
+		// Liên kết Room
+		Room room = roomRepository.findById(request.getRoomId())
+				.orElseThrow(() -> new IllegalArgumentException("Room not found with ID: " + request.getRoomId()));
+		timetable.setRoom(room);
+
+		return timetableRepository.save(timetable);
+	}
+
+	@Transactional
+	public Timetable updateTimetable(Long id, TimetableDTO request) {
+		Timetable timetable = timetableRepository.findById(id)
+				.orElseThrow(() -> new IllegalArgumentException("Timetable not found with ID: " + id));
+
+		// Validation
+		request.validate();
+
+		// Kiểm tra trùng lặp tên Timetable
+		String timetableName = request.getTimetableName();
+		if (timetableName != null && !timetable.getTimetableName().equals(timetableName)) {
+			Optional<Timetable> existingTimetable = timetableRepository
+					.findByTimetableNameAndSemesterId(timetableName, request.getSemesterId());
+			if (existingTimetable.isPresent() && !existingTimetable.get().getId().equals(id)) {
+				throw new ResourceAlreadyExistsException("Timetable with name " + timetableName +
+						" in semester " + request.getSemesterId() + " already exists");
+			}
+		}
+
+		// Lấy LessonTime để xác định startLesson và khoảng tiết
+		LessonTime startLessonTime = lessonTimeRepository.findById(request.getStartLessonTimeId())
+				.orElseThrow(() -> new IllegalArgumentException("Start LessonTime not found with ID: " + request.getStartLessonTimeId()));
+		LessonTime endLessonTime = lessonTimeRepository.findById(request.getEndLessonTimeId())
+				.orElseThrow(() -> new IllegalArgumentException("End LessonTime not found with ID: " + request.getEndLessonTimeId()));
+		int startLessonNumber = startLessonTime.getLessonNumber();
+		int endLessonNumber = endLessonTime.getLessonNumber();
+
+		// Kiểm tra startLessonNumber <= endLessonNumber
+		if (startLessonNumber > endLessonNumber) {
+			throw new IllegalArgumentException("Start lesson number (" + startLessonNumber + ") must be less than or equal to end lesson number (" + endLessonNumber + ")");
+		}
+
+		// Kiểm tra xung đột
+		List<Timetable> conflictingTimetables = timetableRepository.findConflictingTimetables(
+				request.getSemesterId(), request.getDayOfWeek(), request.getRoomId(),
+				startLessonNumber, endLessonNumber);
+		if (!conflictingTimetables.isEmpty()) {
+			List<LocalDate[]> newPeriods = filterCancelDates(
+					extractStudyPeriods(request.getStudyTime()), request.getCancelDates());
+			for (Timetable existing : conflictingTimetables) {
+				if (existing.getId().equals(id)) continue;
+				List<LocalDate[]> existingPeriods = filterCancelDates(
+						extractStudyPeriods(existing.getStudyTime()), existing.getCancelDates());
+				for (LocalDate[] newPeriod : newPeriods) {
+					for (LocalDate[] existingPeriod : existingPeriods) {
+						if (periodsOverlap(newPeriod, existingPeriod)) {
+							throw new IllegalArgumentException("Timetable conflicts with existing timetable " +
+									existing.getTimetableName() + " in room " + existing.getRoom().getId() +
+									" on " + request.getDayOfWeek() + " from lesson " + startLessonNumber +
+									" to " + endLessonNumber);
+						}
+					}
+				}
+			}
+		}
+
+		// Tìm Semester và Instructor
+		Semester semester = semesterRepository.findById(request.getSemesterId())
+				.orElseThrow(() -> new ResourceNotFoundException("Semester not found with ID: " + request.getSemesterId()));
+		Instructor instructor = instructorRepository.findById(request.getInstructorId())
+				.orElseThrow(() -> new ResourceNotFoundException("Instructor not found with ID: " + request.getInstructorId()));
+
+		// Xử lý Courses
+		Set<Course> courses = new HashSet<>();
+		if (request.getCourses() != null && !request.getCourses().isEmpty()) {
+			for (CourseRequestDTO courseDTO : request.getCourses()) {
+				Course course;
+				if (courseDTO.getId() != null) { // TH2: Course có sẵn
+					course = courseRepository.findById(courseDTO.getId())
+							.orElseThrow(() -> new ResourceNotFoundException("Course not found with ID: " + courseDTO.getId()));
+				} else { // TH3: Tạo mới Course
+					Instructor courseInstructor = instructorRepository.findById(courseDTO.getInstructorId())
+							.orElseThrow(() -> new ResourceNotFoundException("Instructor not found with ID: " + courseDTO.getInstructorId()));
+					course = Course.builder()
+							.name(courseDTO.getName())
+							.code(courseDTO.getCode())
+							.NH(courseDTO.getNH())
+							.TH(courseDTO.getTH())
+							.description(courseDTO.getDescription())
+							.credits(courseDTO.getCredits())
+							.instructor(courseInstructor)
+							.enrollments(new HashSet<>())
+							.timetables(new HashSet<>())
+							.build();
+					course = courseRepository.save(course);
+				}
+				courses.add(course);
+			}
+		}
+
+		// Sinh timetableName nếu không cung cấp
+		if (timetableName == null) {
+			timetableName = generateTimetableName(request.getCourses(), semester);
+		}
+
+		// Cập nhật các trường cơ bản
+		timetable.setTimetableName(timetableName);
+		timetable.setDayOfWeek(request.getDayOfWeek());
+		timetable.setNumberOfStudents(request.getNumberOfStudents() != null ? request.getNumberOfStudents() : timetable.getNumberOfStudents());
+		timetable.setStartLesson(startLessonNumber);
+		timetable.setTotalLessonSemester(request.getTotalLessonSemester() != null ? request.getTotalLessonSemester() : timetable.getTotalLessonSemester());
+		timetable.setTotalLessonDay(request.getTotalLessonDay() != null ? request.getTotalLessonDay() : timetable.getTotalLessonDay());
+		timetable.setClassId(request.getClassId());
+		timetable.setStudyTime(request.getStudyTime());
+		timetable.setCancelDates(request.getCancelDates() != null ? request.getCancelDates() : timetable.getCancelDates());
+		timetable.setDescription(request.getDescription());
+		timetable.setStartLessonTime(startLessonTime);
+		timetable.setEndLessonTime(endLessonTime);
+		timetable.setSemester(semester);
+		timetable.setInstructor(instructor);
+
+		// Cập nhật Room
+		Room room = roomRepository.findById(request.getRoomId())
+				.orElseThrow(() -> new IllegalArgumentException("Room not found with ID: " + request.getRoomId()));
+		timetable.setRoom(room);
+
+		timetable.setCourses(courses);
+
+		return timetableRepository.save(timetable);
+	}
+
+	@Transactional
+	public void deleteTimetable(Long id) {
+		Timetable timetable = timetableRepository.findById(id)
+				.orElseThrow(() -> new IllegalArgumentException("Timetable not found with ID: " + id));
+		timetableRepository.delete(timetable);
+	}
+
+	@Override
+	public PageResponse<Timetable> getTimetables(Pageable pageable,String keyword,String roomName,String semesterIds) {
+		Specification<Timetable> spec=TimetableSpecification.getTimetableByKeywordAndRoom(keyword,roomName,semesterIds);
+		Page<Timetable>timetablePage=timetableRepository.findAll(spec,pageable);
+		return PageResponse.<Timetable>builder()
+				.content(timetablePage.getContent())
+				.number(timetablePage.getNumber())
+				.size(timetablePage.getSize())
+				.totalElements(timetablePage.getTotalElements())
+				.totalPages(timetablePage.getTotalPages())
+				.first(timetablePage.isFirst())
+				.last(timetablePage.isLast())
+				.build();
+	}
 }

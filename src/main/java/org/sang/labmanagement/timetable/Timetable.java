@@ -76,7 +76,6 @@ public class Timetable {
 	//"03/10/2024 - 24/10/2024"
 	private String studyTime;
 
-
 	@ManyToOne
 	@JoinColumn(name = "start_lesson_time_id")
 	private LessonTime startLessonTime;

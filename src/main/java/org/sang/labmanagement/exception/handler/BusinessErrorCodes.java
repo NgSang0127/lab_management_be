@@ -29,6 +29,7 @@ public enum BusinessErrorCodes {
 	TWO_FA_NOT_ENABLED(207, HttpStatus.BAD_REQUEST, "2FA is not enabled for this user."),
 	INVALID_OTP(208, HttpStatus.UNAUTHORIZED, "Invalid OTP code."),
 
+
 	// User Management Errors
 	USER_NOT_FOUND(300, HttpStatus.NOT_FOUND, "User not found"),
 	EMAIL_ALREADY_EXISTS(301, HttpStatus.BAD_REQUEST, "Email already exists"),

@@ -10,12 +10,14 @@ import org.sang.labmanagement.exception.OperationNotPermittedException;
 import org.sang.labmanagement.exception.QRCodeException;
 import org.sang.labmanagement.exception.ResourceAlreadyExistsException;
 import org.sang.labmanagement.exception.ResourceNotFoundException;
+import org.sang.labmanagement.exception.TimetableConflictException;
 import org.sang.labmanagement.exception.TokenException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.authentication.DisabledException;
 import org.springframework.security.authentication.LockedException;
+import org.springframework.web.ErrorResponse;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
@@ -120,6 +122,15 @@ public class GlobalExceptionHandler {
 		return buildResponse(HttpStatus.BAD_REQUEST,
 				BusinessErrorCodes.ILLEGAL_STATE.getCode(),
 				BusinessErrorCodes.ILLEGAL_STATE.getDescription(),
+				exp.getMessage());
+	}
+
+	@ExceptionHandler(TimetableConflictException.class)
+	public ResponseEntity<ExceptionResponse> handleTimetableConflictException(TimetableConflictException exp) {
+		log.warn("Timetable conflict: {}", exp.getMessage());
+		return buildResponse(HttpStatus.CONFLICT,
+				BusinessErrorCodes.RESOURCE_CONFLICT.getCode(),
+				BusinessErrorCodes.RESOURCE_CONFLICT.getDescription(),
 				exp.getMessage());
 	}
 

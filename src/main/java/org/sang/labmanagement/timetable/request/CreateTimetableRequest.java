@@ -24,7 +24,9 @@ public class CreateTimetableRequest {
 
 	private LocalDate date;
 
-	private String instructorId;
+	private Long instructorId;
 
 	private String description;
+
+	private Long semesterId;
 }
