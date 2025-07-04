@@ -14,8 +14,8 @@ import org.springframework.web.multipart.MultipartFile;
 
 public interface TimetableService {
 
-	PageResponse<Timetable>getTimetables(Pageable pageable,String keyword,String roomName,String semesterIds);
-
+	PageResponse<Timetable>getTimetables(Pageable pageable,String keyword,String roomName,String semesterIds,
+			String status);
 
 	List<Timetable> getAllTimetableByWeek(LocalDate startDate,LocalDate endDate);
 
@@ -41,4 +41,9 @@ public interface TimetableService {
 
 	void deleteTimetable(Long id);
 
+	Timetable approveTimetable(Long id) ;
+
+	Timetable rejectTimetable(Long id) ;
+
+	List<Timetable> getTimetablesByDateAndRoom(LocalDate date, String roomName);
 }

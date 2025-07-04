@@ -15,10 +15,14 @@ target/
 
 ### IntelliJ IDEA ###
 .idea
+.env
 *.iws
 *.iml
 *.ipr
-.env
+**/*.env
+**/.env.*
+!**/example.env
+local.env
 application-dev.yml
 
 ### NetBeans ###

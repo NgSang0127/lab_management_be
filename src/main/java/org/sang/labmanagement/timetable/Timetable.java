@@ -91,6 +91,8 @@ public class Timetable {
 
 	private String description;
 
+	private String status;
+
 	@Override
 	public String toString() {
 		return "Timetable{" +

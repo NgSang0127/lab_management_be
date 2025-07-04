@@ -63,6 +63,7 @@ public class SecurityConfig {
 						.requestMatchers("/api/v1/timetable/course-details").permitAll()
 						.requestMatchers("/api/v1/timetable/semester").permitAll()
 						.requestMatchers("/api/v1/admin/rooms").permitAll()
+						.requestMatchers("/api/v1/admin/semester").permitAll()
 						.requestMatchers("/ws/**", "/chat/**").permitAll()
 						.requestMatchers("/api/v1/admin/**").hasAnyRole("ADMIN","OWNER","CO_OWNER")
 						.requestMatchers("/teacher/**").hasRole("TEACHER")
@@ -87,7 +88,7 @@ public class SecurityConfig {
 			List<String> allowedOrigins = Arrays.asList(corsOrigins.split(","));
 			corsConfig.setAllowedOriginPatterns(allowedOrigins);
 
-			corsConfig.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
+			corsConfig.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS","PATCH"));
 
 			corsConfig.setAllowedHeaders(Arrays.asList(
 					"Authorization",

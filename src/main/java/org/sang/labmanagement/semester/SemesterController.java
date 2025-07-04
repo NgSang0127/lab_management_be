@@ -7,6 +7,7 @@ import org.sang.labmanagement.asset.category.Category;
 import org.sang.labmanagement.common.PageResponse;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -26,6 +27,7 @@ public class SemesterController {
 
 
 	@GetMapping
+	@PreAuthorize("hasRole('ADMIN') or hasRole('STUDENT') or hasRole('TEACHER')")
 	public ResponseEntity<PageResponse<Semester>> getAllSemester(
 			@RequestParam(name = "page", defaultValue = "0", required = false) int page,
 			@RequestParam(name = "size", defaultValue = "10", required = false) int size
@@ -51,10 +53,10 @@ public class SemesterController {
 	}
 
 	@GetMapping("/active")
+	@PreAuthorize("hasRole('ADMIN') or hasRole('STUDENT') or hasRole('TEACHER')")
 	public ResponseEntity<List<Semester>> getActiveSemesters() {
 		return ResponseEntity.ok(semesterService.getActiveSemesters());
 
 	}
-
 
 }

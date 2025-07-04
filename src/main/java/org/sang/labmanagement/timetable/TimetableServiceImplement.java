@@ -109,6 +109,7 @@ public class TimetableServiceImplement implements TimetableService {
 		return matchingTimetables;
 	}
 
+
 	@Override
 	public Map<String, String> getFirstAndLastWeek(Long semesterId) {
 		List<Timetable> timetables = timetableRepository.findBySemesterId(semesterId); // Tìm thời khóa biểu theo kỳ học
@@ -196,10 +197,30 @@ public class TimetableServiceImplement implements TimetableService {
 	}
 
 	@Override
-// Lấy danh sách Timetable dựa trên ngày
+	// Lấy danh sách Timetable dựa trên ngày
 	public List<Timetable> getTimetablesByDate(LocalDate date) {
 		List<Timetable> timetables = timetableRepository.findAll();
 
+		return timetables.stream()
+				.filter(timetable -> isCorrectDayAndPeriod(timetable, date) && !isDateCanceled(timetable, date))
+				.collect(Collectors.toList());
+	}
+
+	@Override
+	public List<Timetable> getTimetablesByDateAndRoom(LocalDate date, String roomName) {
+		// Initialize Specification with no initial conditions
+		Specification<Timetable> spec = Specification.where(null);
+
+		// Add roomName filter if provided
+		if (roomName != null && !roomName.trim().isEmpty()) {
+			spec = spec.and((root, query, cb) ->
+					cb.equal(root.get("room").get("name"), roomName));
+		}
+
+		// Fetch timetables matching the roomName filter
+		List<Timetable> timetables = timetableRepository.findAll(spec);
+
+		// Filter by date using studyTime and additional conditions
 		return timetables.stream()
 				.filter(timetable -> isCorrectDayAndPeriod(timetable, date) && !isDateCanceled(timetable, date))
 				.collect(Collectors.toList());
@@ -331,6 +352,7 @@ public class TimetableServiceImplement implements TimetableService {
 				.dayOfWeek(request.getDate().getDayOfWeek())
 				.studyTime(newStudyTime) // Lưu ngày duy nhất dưới dạng chuỗi
 				.description(request.getDescription())
+				.status("PENDING")
 				.build();
 
 		// Liên kết Semester nếu có
@@ -1220,8 +1242,10 @@ public class TimetableServiceImplement implements TimetableService {
 	}
 
 	@Override
-	public PageResponse<Timetable> getTimetables(Pageable pageable,String keyword,String roomName,String semesterIds) {
-		Specification<Timetable> spec=TimetableSpecification.getTimetableByKeywordAndRoom(keyword,roomName,semesterIds);
+	public PageResponse<Timetable> getTimetables(Pageable pageable,String keyword,String roomName,String semesterIds,
+			String status) {
+		Specification<Timetable> spec=TimetableSpecification.getTimetableByKeywordAndRoomAndStatus(keyword,roomName,
+				semesterIds,status);
 		Page<Timetable>timetablePage=timetableRepository.findAll(spec,pageable);
 		return PageResponse.<Timetable>builder()
 				.content(timetablePage.getContent())
@@ -1233,4 +1257,31 @@ public class TimetableServiceImplement implements TimetableService {
 				.last(timetablePage.isLast())
 				.build();
 	}
+
+
+	@Transactional
+	@Override
+	public Timetable approveTimetable(Long id) {
+		Timetable timetable = timetableRepository.findById(id)
+				.orElseThrow(() -> new ResourceNotFoundException("Timetable not found with ID: " + id));
+		if (!timetable.getStatus().equals("PENDING")) {
+			throw new IllegalStateException("Timetable is not in PENDING status");
+		}
+		timetable.setStatus("APPROVED");
+		return timetableRepository.save(timetable);
+	}
+
+	@Transactional
+	@Override
+	public Timetable rejectTimetable(Long id) {
+		Timetable timetable = timetableRepository.findById(id)
+				.orElseThrow(() -> new ResourceNotFoundException("Timetable not found with ID: " + id));
+		if (!timetable.getStatus().equals("PENDING")) {
+			throw new IllegalStateException("Timetable is not in PENDING status");
+		}
+		timetable.setStatus("REJECTED");
+		return timetableRepository.save(timetable);
+	}
+
+
 }

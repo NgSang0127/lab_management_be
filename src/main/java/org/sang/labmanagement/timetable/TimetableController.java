@@ -17,6 +17,7 @@ import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
@@ -42,7 +43,8 @@ public class TimetableController {
 			@RequestParam(name = "roomName", required = false) String roomName,
 			@RequestParam(name = "semesterIds", required = false) String semesterIds,
 			@RequestParam(name = "sortBy", required = false) String sortBy,
-			@RequestParam(name = "sortOrder", defaultValue = "asc", required = false) String sortOrder
+			@RequestParam(name = "sortOrder", defaultValue = "asc", required = false) String sortOrder,
+			@RequestParam(name = "status", defaultValue = "", required = false) String status
 	){
 		Sort sort = Sort.unsorted();
 		if (sortBy != null && !sortBy.isEmpty()) {
@@ -50,7 +52,7 @@ public class TimetableController {
 			sort = Sort.by(direction, sortBy);
 		}
 		Pageable pageable = PageRequest.of(page, size, sort);
-		return ResponseEntity.ok(timetableService.getTimetables(pageable, keyword, roomName, semesterIds));
+		return ResponseEntity.ok(timetableService.getTimetables(pageable, keyword, roomName, semesterIds,status));
 	}
 
 	@GetMapping("/by-week")
@@ -138,6 +140,16 @@ public class TimetableController {
 		return ResponseEntity.ok(timetables);
 	}
 
+	@GetMapping("/by-date-room")
+	public ResponseEntity<List<Timetable>> getTimetablesByDate(
+			@RequestParam LocalDate date,
+			@RequestParam(required = false) String roomName
+	) {
+		List<Timetable> timetables = timetableService.getTimetablesByDateAndRoom(date, roomName);
+		return ResponseEntity.ok(timetables);
+	}
+
+
 	@PostMapping("/create")
 	public ResponseEntity<Timetable> createTimetable(@RequestBody CreateTimetableRequest request) {
 		Timetable newTimetable = timetableService.createTimetable(request);
@@ -164,6 +176,18 @@ public class TimetableController {
 		} catch (ResourceNotFoundException e) {
 			return ResponseEntity.badRequest().body("Error deleting timetable: " + e.getMessage());
 		}
+	}
+
+	@PatchMapping("/{id}/approve")
+	public ResponseEntity<Timetable> approveTimetable(@PathVariable Long id) {
+		Timetable timetable = timetableService.approveTimetable(id);
+		return ResponseEntity.ok(timetable);
+	}
+
+	@PatchMapping("/{id}/reject")
+	public ResponseEntity<Timetable> rejectTimetable(@PathVariable Long id) {
+		Timetable timetable = timetableService.rejectTimetable(id);
+		return ResponseEntity.ok(timetable);
 	}
 
 }
