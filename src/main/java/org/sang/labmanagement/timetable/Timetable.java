@@ -2,6 +2,7 @@ package org.sang.labmanagement.timetable;
 
 import com.fasterxml.jackson.annotation.JsonFormat;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import jakarta.persistence.Column;
 import jakarta.persistence.ElementCollection;
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
@@ -57,6 +58,7 @@ public class Timetable {
 	@JoinColumn(name = "semester_id", nullable = false)
 	private Semester semester;
 
+	@Column(name = "timetable_name")
 	private String timetableName;
 
 	@ManyToOne

@@ -57,6 +57,8 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -197,14 +199,17 @@ public class TimetableServiceImplement implements TimetableService {
 	}
 
 	@Override
-	// Lấy danh sách Timetable dựa trên ngày
 	public List<Timetable> getTimetablesByDate(LocalDate date) {
 		List<Timetable> timetables = timetableRepository.findAll();
 
 		return timetables.stream()
-				.filter(timetable -> isCorrectDayAndPeriod(timetable, date) && !isDateCanceled(timetable, date))
+				.filter(timetable ->
+						isCorrectDayAndPeriod(timetable, date) &&
+								!isDateCanceled(timetable, date) &&
+								("APPROVED".equals(timetable.getStatus()) || timetable.getStatus() == null))
 				.collect(Collectors.toList());
 	}
+
 
 	@Override
 	public List<Timetable> getTimetablesByDateAndRoom(LocalDate date, String roomName) {
@@ -271,8 +276,8 @@ public class TimetableServiceImplement implements TimetableService {
 		return timetableRepository.findByTimetableName(timetableName);
 	}
 
-	@Override
 	@Transactional
+	@Override
 	public Timetable createTimetable(CreateTimetableRequest request) {
 		// Validation
 		if (request.getTimetableName() == null || request.getTimetableName().trim().isEmpty()) {
@@ -285,18 +290,23 @@ public class TimetableServiceImplement implements TimetableService {
 		if (request.getDate() == null) {
 			throw new IllegalArgumentException("Date is required");
 		}
+		// Prevent booking past dates
+		LocalDate currentDate = LocalDate.now();
+		if (request.getDate().isBefore(currentDate)) {
+			throw new IllegalArgumentException("Cannot book a timetable for a past date: " + request.getDate());
+		}
 
-		// Tìm Room
+		// Find Room
 		Room room = roomRepository.findByName(request.getRoomName());
 		if (room == null) {
 			throw new ResourceNotFoundException("Room not found with name: " + request.getRoomName());
 		}
 
-		// Tìm Instructor
+		// Find Instructor
 		Instructor instructor = instructorRepository.findById(request.getInstructorId())
 				.orElseThrow(() -> new ResourceNotFoundException("Instructor not found with ID: " + request.getInstructorId()));
 
-		// Tìm LessonTime
+		// Find LessonTime
 		LessonTime startTime = lessonTimeRepository.findByLessonNumber(request.getStartLesson());
 		if (startTime == null) {
 			throw new IllegalArgumentException("Start LessonTime not found with number: " + request.getStartLesson());
@@ -306,38 +316,50 @@ public class TimetableServiceImplement implements TimetableService {
 			throw new IllegalArgumentException("End LessonTime not found with number: " + request.getEndLesson());
 		}
 
-		// Kiểm tra trùng lặp timetableName
-		if (request.getSemesterId() != null) {
-			Optional<Timetable> existingTimetable = timetableRepository
-					.findByTimetableNameAndSemesterId(request.getTimetableName(), request.getSemesterId());
-			if (existingTimetable.isPresent()) {
-				throw new ResourceAlreadyExistsException("Timetable with name " + request.getTimetableName() +
-						" in semester " + request.getSemesterId() + " already exists");
-			}
+		// Find Semester based on date
+		Semester semester = semesterRepository.findAll().stream()
+				.filter(s ->
+						(request.getDate().isEqual(s.getStartDate()) || request.getDate().isAfter(s.getStartDate())) &&
+								(s.getEndDate() == null || request.getDate().isBefore(s.getEndDate()) || request.getDate().isEqual(s.getEndDate())))
+				.findFirst()
+				.orElseThrow(() -> new ResourceNotFoundException("No semester found for the selected date: " + request.getDate()));
+
+		// Check for duplicate timetableName in the semester
+		Optional<Timetable> existingTimetable = timetableRepository
+				.findByTimetableNameAndSemesterId(request.getTimetableName(), semester.getId());
+		if (existingTimetable.isPresent()) {
+			throw new ResourceAlreadyExistsException("Timetable with name " + request.getTimetableName() +
+					" in semester " + semester.getId() + " already exists");
 		}
 
-		// Kiểm tra xung đột
+		// Check for conflicts
 		List<Timetable> conflictingTimetables = timetableRepository.findConflictingTimetables(
-				request.getSemesterId(),
-				DayOfWeek.valueOf(request.getDate().getDayOfWeek().name()), // Chuyển thành String thay vì DayOfWeek
-				room.getId(),
-				request.getStartLesson(),
-				request.getEndLesson()
-		);
-		DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd/MM/yyyy");
-		String newStudyTime = request.getDate().format(formatter);
-		for (Timetable existing : conflictingTimetables) {
-			// Kiểm tra xem ngày request.getDate() có nằm trong studyTime của lịch hiện có
-			List<LocalDate[]> existingPeriods = extractStudyPeriods(existing.getStudyTime());
-			for (LocalDate[] period : existingPeriods) {
-				LocalDate startDate = period[0];
-				LocalDate endDate = period.length > 1 ? period[1] : startDate;
-				if (!request.getDate().isBefore(startDate) && !request.getDate().isAfter(endDate)) {
-					throw new TimetableConflictException("Timetable conflicts with existing timetable " +
-							existing.getTimetableName() + " in room " + existing.getRoom().getName() +
-							" on " + request.getDate().getDayOfWeek() + " from lesson " +
-							request.getStartLesson() + " to " + request.getEndLesson());
-				}
+						semester.getId(),
+						request.getDate().getDayOfWeek(),
+						room.getId(),
+						request.getStartLesson(),
+						request.getEndLesson()
+				).stream()
+				.filter(t -> "APPROVED".equals(t.getStatus()) || t.getStatus() == null)
+				.collect(Collectors.toList());
+		if (!conflictingTimetables.isEmpty()) {
+			throw new TimetableConflictException("Timetable conflicts with existing timetable in room " + room.getName() +
+					" on " + request.getDate().getDayOfWeek() + " from lesson " +
+					request.getStartLesson() + " to " + request.getEndLesson());
+		}
+
+		// Determine timetable status based on user role
+		String status = "PENDING";
+		Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+		if (authentication != null && authentication.getAuthorities() != null) {
+			boolean isPrivilegedRole = authentication.getAuthorities().stream()
+					.anyMatch(grantedAuthority ->
+							grantedAuthority.getAuthority().equals("ROLE_ADMIN") ||
+									grantedAuthority.getAuthority().equals("ROLE_OWNER") ||
+									grantedAuthority.getAuthority().equals("ROLE_CO_OWNER")
+					);
+			if (isPrivilegedRole) {
+				status = "APPROVED";
 			}
 		}
 
@@ -350,17 +372,11 @@ public class TimetableServiceImplement implements TimetableService {
 				.endLessonTime(endTime)
 				.totalLessonDay(request.getEndLesson() - request.getStartLesson() + 1)
 				.dayOfWeek(request.getDate().getDayOfWeek())
-				.studyTime(newStudyTime) // Lưu ngày duy nhất dưới dạng chuỗi
+				.studyTime(request.getDate().format(DateTimeFormatter.ofPattern("dd/MM/yyyy")))
 				.description(request.getDescription())
-				.status("PENDING")
+				.status(status)
+				.semester(semester)
 				.build();
-
-		// Liên kết Semester nếu có
-		if (request.getSemesterId() != null) {
-			Semester semester = semesterRepository.findById(request.getSemesterId())
-					.orElseThrow(() -> new ResourceNotFoundException("Semester not found with ID: " + request.getSemesterId()));
-			timetable.setSemester(semester);
-		}
 
 		return timetableRepository.save(timetable);
 	}
@@ -1264,9 +1280,36 @@ public class TimetableServiceImplement implements TimetableService {
 	public Timetable approveTimetable(Long id) {
 		Timetable timetable = timetableRepository.findById(id)
 				.orElseThrow(() -> new ResourceNotFoundException("Timetable not found with ID: " + id));
-		if (!timetable.getStatus().equals("PENDING")) {
+		if (!"PENDING".equals(timetable.getStatus())) {
 			throw new IllegalStateException("Timetable is not in PENDING status");
 		}
+
+		// Parse the studyTime to get the date
+		LocalDate timetableDate;
+		try {
+			timetableDate = LocalDate.parse(timetable.getStudyTime(), DateTimeFormatter.ofPattern("dd/MM/yyyy"));
+		} catch (Exception e) {
+			throw new IllegalStateException("Invalid studyTime format for timetable ID: " + id);
+		}
+
+		// Check for conflicts with approved or null-status timetables
+		List<Timetable> conflictingTimetables = timetableRepository.findConflictingTimetables(
+						timetable.getSemester().getId(),
+						timetableDate.getDayOfWeek(),
+						timetable.getRoom().getId(),
+						timetable.getStartLesson(),
+						timetable.getEndLessonTime().getLessonNumber()
+				).stream()
+				.filter(t -> "APPROVED".equals(t.getStatus()) || t.getStatus() == null)
+				.filter(t -> !t.getId().equals(id)) // Exclude the current timetable
+				.collect(Collectors.toList());
+
+		if (!conflictingTimetables.isEmpty()) {
+			throw new TimetableConflictException("Cannot approve timetable due to conflict with existing approved timetable in room " +
+					timetable.getRoom().getName() + " on " + timetableDate.getDayOfWeek() +
+					" from lesson " + timetable.getStartLesson() + " to " + timetable.getEndLessonTime().getLessonNumber());
+		}
+
 		timetable.setStatus("APPROVED");
 		return timetableRepository.save(timetable);
 	}

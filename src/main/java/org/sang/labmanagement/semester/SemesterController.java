@@ -27,7 +27,8 @@ public class SemesterController {
 
 
 	@GetMapping
-	@PreAuthorize("hasRole('ADMIN') or hasRole('STUDENT') or hasRole('TEACHER')")
+	@PreAuthorize("hasRole('ADMIN') or hasRole('STUDENT') or hasRole('TEACHER') or hasRole('OWNER') or hasRole"
+			+ "('CO_OWNER')" )
 	public ResponseEntity<PageResponse<Semester>> getAllSemester(
 			@RequestParam(name = "page", defaultValue = "0", required = false) int page,
 			@RequestParam(name = "size", defaultValue = "10", required = false) int size
