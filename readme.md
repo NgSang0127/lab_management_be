@@ -12,7 +12,7 @@
 
 **Hệ thống quản lý phòng thực hành (Lab Management System)** — Backend RESTful API được xây dựng bằng Spring Boot 3, tích hợp bảo mật nâng cao, real-time WebSocket, observability stack ELK và containerization hoàn chỉnh với Docker.
 
-[🌐 Frontend Repo](#) · [📖 API Docs (Swagger)](#api-documentation) · [🐛 Báo lỗi](https://github.com/NgSang0127/lab_management_be/issues)
+[🌐 Frontend Repo](https://github.com/NgSang0127/lab_management_ui) · [📖 API Docs (Swagger)](#api-documentation) · [🐛 Báo lỗi](https://github.com/NgSang0127/lab_management_be/issues)
 
 </div>
 
